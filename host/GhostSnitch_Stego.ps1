@@ -1,9 +1,9 @@
-
 ####################################################################################################
 # Title       : GhostSnitch
 # Version     : 1.0 (Stealth)
 # Author      : I am TBJr
 # Description : Curiosity was the spark, but roasting you is the flame. Now with stealth mode.
+# Directory   : // badusb/Windows/GhostSnitch_Stego/GhostSnitch_Stego.txt
 ####################################################################################################
 
 # Set up SAPI for text-to-speech
