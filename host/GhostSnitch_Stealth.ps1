@@ -6,11 +6,11 @@
 ####################################################################################################
 
 # Auto-elevate if not running as Administrator
-If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell -Verb runAs -ArgumentList "-ExecutionPolicy Bypass -File `\"$PSCommandPath`\""
-    exit
-}
+#If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+#    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+#    Start-Process powershell -Verb runAs -ArgumentList "-ExecutionPolicy Bypass -File `\"$PSCommandPath`\""
+#    exit
+#}
 
 function Get-FullName {
     try {
