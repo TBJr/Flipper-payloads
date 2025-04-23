@@ -1,10 +1,17 @@
 
 ####################################################################################################
 # Title       : GhostSnitch
-# Version     : 1.0
+# Version     : 1.1
 # Author      : I am TBJr
 # Description : Curiosity was the spark, but roasting you is the flame.
 ####################################################################################################
+
+# Check for Admin Privileges
+If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "Script needs to be run as Administrator!"
+    exit
+}
 
 # Set up SAPI for text-to-speech
 $s = New-Object -ComObject SAPI.SpVoice
@@ -24,6 +31,24 @@ $fullName = Get-FullName
 # Function to get Username and Machine
 function Get-UserInfo {
     return "User: $env:USERNAME on $env:COMPUTERNAME"
+}
+
+# Function to get user email (if present)
+function Get-Email {
+    try {
+        $email = (gpresult /z | Select-String -Pattern "\S+@\S+").Matches.Value
+        if ($email -like "*gmail*") {
+            return "Gmail user? Stylish. But your inbox is probably chaos."
+        } elseif ($email -like "*yahoo*") {
+            return "Yahoo... in 2025? A digital fossil."
+        } elseif ($email -like "*hotmail*") {
+            return "Hotmail? Do you also use Netscape?"
+        } else {
+            return "$email is your email? Obscure. I like it."
+        }
+    } catch {
+        return "No email found. A mystery wrapped in encryption."
+    }
 }
 
 # Function to get O.S info
@@ -95,6 +120,25 @@ function Get-TopProcesses {
     return ($processes | ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" }) -join ", "
 }
 
+# Function to get current wallpaper
+function Get-WallpaperPath {
+    try {
+        return (Get-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallPaper).WallPaper
+    } catch {
+        return "Could not retrieve current wallpaper."
+    }
+}
+
+# Function to list startup apps
+function Get-StartupApps {
+    try {
+        $startup = Get-CimInstance Win32_StartupCommand | Select-Object Name, Command
+        return ($startup | ForEach-Object { "$($_.Name): $($_.Command)" }) -join "`n"
+    } catch {
+        return "Could not retrieve startup applications."
+    }
+}
+
 # Function to get RAM and generate roast
 function Get-RAM {
     try {
@@ -157,24 +201,6 @@ function Get-PasswordAge {
         }
     } catch {
         return "Password age unknown. Are you even human?"
-    }
-}
-
-# Function to get user email (if present)
-function Get-Email {
-    try {
-        $email = (gpresult /z | Select-String -Pattern "\S+@\S+").Matches.Value
-        if ($email -like "*gmail*") {
-            return "Gmail user? Stylish. But your inbox is probably chaos."
-        } elseif ($email -like "*yahoo*") {
-            return "Yahoo... in 2025? A digital fossil."
-        } elseif ($email -like "*hotmail*") {
-            return "Hotmail? Do you also use Netscape?"
-        } else {
-            return "$email is your email? Obscure. I like it."
-        }
-    } catch {
-        return "No email found. A mystery wrapped in encryption."
     }
 }
 
