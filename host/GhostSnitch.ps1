@@ -7,11 +7,11 @@
 ####################################################################################################
 
 # Check for Admin Privileges
-If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Warning "Script needs to be run as Administrator!"
-    exit
-}
+#If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+#    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+#    Write-Warning "Script needs to be run as Administrator!"
+#    exit
+#}
 
 # Set up SAPI for text-to-speech
 $s = New-Object -ComObject SAPI.SpVoice
