@@ -1,0 +1,5 @@
+Name: GhostSnitch_iOS
+Author: TBJr
+Version: 1.0
+Icon: icon.svg
+
