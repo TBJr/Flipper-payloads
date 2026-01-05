@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GhostSnitch Android</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #f00;
+            text-align: center;
+        }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #111;
+            border-left: 3px solid #0f0;
+        }
+        .status {
+            color: #ff0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 GhostSnitch Android</h1>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function addInfo(text, className = '') {
+            const div = document.createElement('div');
+            div.className = `info ${className}`;
+            div.textContent = text;
+            output.appendChild(div);
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                window.speechSynthesis.speak(utterance);
+                addInfo(`🔊 ${text}`, 'status');
+            } else {
+                addInfo(`📢 ${text}`);
+            }
+        }
+
+        async function getDeviceInfo() {
+            const brand = navigator.vendor || 'Unknown';
+            const platform = navigator.platform || 'Unknown';
+            const userAgent = navigator.userAgent || 'Unknown';
+            
+            // Try to extract Android version
+            const androidMatch = userAgent.match(/Android (\d+(\.\d+)?)/);
+            const androidVer = androidMatch ? androidMatch[1] : 'Unknown';
+            
+            const deviceInfo = `You're using ${brand} ${platform} running Android ${androidVer}. Brave, but foolish.`;
+            speak(deviceInfo);
+            addInfo(`📱 Device: ${brand} ${platform} (Android ${androidVer})`);
+        }
+
+        function getRAMInfo() {
+            if ('deviceMemory' in navigator) {
+                const ram = navigator.deviceMemory;
+                speak(`This device has approximately ${ram} gigabytes of RAM. That's cute.`);
+                addInfo(`💾 RAM: ${ram} GB`);
+            } else {
+                speak("Couldn't read your RAM info. Probably not enough to matter anyway.");
+                addInfo('💾 RAM: Unknown');
+            }
+        }
+
+        async function getIPInfo() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                speak(`Your public IP is ${data.ip}. And I know where you live now.`);
+                addInfo(`🌐 IP: ${data.ip}`);
+            } catch (error) {
+                try {
+                    const response = await fetch('https://icanhazip.com');
+                    const ip = await response.text().trim();
+                    speak(`Your public IP is ${ip}. And I know where you live now.`);
+                    addInfo(`🌐 IP: ${ip}`);
+                } catch (e) {
+                    speak("Couldn't fetch your IP address. Probably hiding behind a VPN. Smart move.");
+                    addInfo('🌐 IP: Unknown');
+                }
+            }
+        }
+
+        function getNetworkInfo() {
+            if ('connection' in navigator) {
+                const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                if (conn) {
+                    const type = conn.effectiveType || conn.type || 'Unknown';
+                    const downlink = conn.downlink || 'Unknown';
+                    speak(`Your network connection is ${type} with ${downlink} megabits per second. Weak sauce.`);
+                    addInfo(`📶 Network: ${type} (${downlink} Mbps)`);
+                } else {
+                    speak("Couldn't find your network info. Hiding, huh?");
+                    addInfo('📶 Network: Unknown');
+                }
+            } else {
+                speak("Couldn't access network info. Your device is being secretive.");
+                addInfo('📶 Network: Unknown');
+            }
+        }
+
+        function getLocationHint() {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude.toFixed(2);
+                        const lon = position.coords.longitude.toFixed(2);
+                        speak(`I know your location is approximately ${lat}, ${lon}. And I know where you live now.`);
+                        addInfo(`📍 Location: ${lat}, ${lon}`);
+                    },
+                    () => {
+                        speak("Couldn't get your location. Privacy settings are actually working for once.");
+                        addInfo('📍 Location: Blocked');
+                    }
+                );
+            } else {
+                speak("Location services not available. Can't spy on your location.");
+                addInfo('📍 Location: Not available');
+            }
+        }
+
+        // Main execution
+        async function main() {
+            speak("Hello Android user. Let's begin.");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            getDeviceInfo();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            getRAMInfo();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            await getIPInfo();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            getNetworkInfo();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            getLocationHint();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            speak("GhostSnitch Android signing off. Sleep tight.");
+            addInfo('✅ Execution complete', 'status');
+        }
+
+        // Start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(main, 500);
+        });
+    </script>
+</body>
+</html>
+
