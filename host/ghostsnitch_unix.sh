@@ -11,7 +11,7 @@ OS_TYPE=$(uname)
 HOSTNAME=$(hostname)
 
 # --- Configuration -----------------------------------------------------------
-DISCORD_WEBHOOK="REPLACE_ME"   # Discord webhook URL — set before deploying
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1504979465015394407/vfGz6lp8QwdKt_6z_4AIcKefhRoCueEUh8gb3IioAwIzCJ9LB9WP2aC-HLKJ3c_2vabw"   # Discord webhook (#ghostsnitch-reports) — from DISCORD_WEBHOOK_GHOSTSNITCH in .env
 PRANK_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | cut -c1-8 | tr '[:lower:]' '[:upper:]' \
   || uuidgen 2>/dev/null | tr -d '-' | cut -c1-8 | tr '[:lower:]' '[:upper:]' \
   || printf '%08X' $((RANDOM * RANDOM)))
