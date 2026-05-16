@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <radialGradient id="screenG" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ff41"/>
+      <stop offset="100%" stop-color="#00aa2a"/>
+    </radialGradient>
+    <filter id="g">
+      <feGaussianBlur stdDeviation="0.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#111111"/>
+
+  <!-- Ghost silhouette -->
+  <path d="M 8 22 C 7 22 7 15 9 11 C 11 8 13 7 16 7
+           C 19 7 21 8 23 11 C 25 15 25 22 24 22
+           C 23 23 22 22 21 23 C 20 24 19 23 18 24
+           C 17 23 16 22 15 23 C 14 24 13 23 12 24 C 11 23 9 23 8 22 Z"
+        fill="white" opacity="0.12"/>
+
+  <!-- Circuit traces -->
+  <line x1="10" y1="16" x2="4"  y2="16" stroke="#00ff41" stroke-width="0.8" opacity="0.7"/>
+  <circle cx="4"  cy="16" r="1.2" fill="#00ff41" opacity="0.9"/>
+  <line x1="22" y1="16" x2="28" y2="16" stroke="#00ff41" stroke-width="0.8" opacity="0.7"/>
+  <circle cx="28" cy="16" r="1.2" fill="#00ff41" opacity="0.9"/>
+  <line x1="12" y1="23" x2="6"  y2="27" stroke="#00ff41" stroke-width="0.8" opacity="0.7"/>
+  <circle cx="6"  cy="27" r="1.2" fill="#00ff41" opacity="0.9"/>
+  <line x1="20" y1="23" x2="26" y2="27" stroke="#00ff41" stroke-width="0.8" opacity="0.7"/>
+  <circle cx="26" cy="27" r="1.2" fill="#00ff41" opacity="0.9"/>
+
+  <!-- Red accent -->
+  <circle cx="22" cy="6" r="1.8" fill="#cc0000" opacity="0.95"/>
+
+  <!-- Flipper Zero body -->
+  <rect x="11" y="9"  width="10" height="15" rx="2" fill="#1c1c1c" stroke="#2a2a2a" stroke-width="0.5"/>
+  <!-- Screen -->
+  <rect x="12" y="10" width="8"  height="5"  rx="1" fill="url(#screenG)" filter="url(#g)"/>
+  <!-- Buttons -->
+  <circle cx="13.5" cy="19" r="1.3" fill="#009929"/>
+  <circle cx="16"   cy="19" r="1.3" fill="#009929"/>
+  <circle cx="18.5" cy="19" r="1.3" fill="#009929"/>
+  <!-- Antenna -->
+  <line x1="19" y1="9" x2="22" y2="5" stroke="#333" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- Lightning bolt -->
+  <polygon points="14.5,22 16,16.5 17,19 18.5,13.5 15.5,22.5 17,19.5"
+           fill="#00ff41" opacity="0.9" filter="url(#g)"/>
+</svg>

