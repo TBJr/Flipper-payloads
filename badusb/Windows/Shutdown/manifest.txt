@@ -1,0 +1,4 @@
+Name: Windows shutdown
+Author: TBJr
+Version: 1.0
+Icon: icon.svg

@@ -14,6 +14,7 @@ A collection of custom BadUSB payloads for Flipper Zero. Built for pranks, educa
 | `badusb/Windows/GhostSnitch_Stealth` | 1.4 | Same as above with auto-elevation to Administrator |
 | `badusb/Windows/GhostSnitch_Stego` | 1.1 | Roast prank — steganographic wallpaper variant |
 | `badusb/Windows/Keylogger` | 2.0 | AES-encrypted keystroke logger with optional Discord exfil |
+| `badusb/Windows/Shutdown` | 1.0 | Schedules a Windows shutdown after a 10-second delay |
 
 ### Unix / macOS
 
